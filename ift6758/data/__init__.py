@@ -12,3 +12,6 @@ but both are still valid. You can read more about packages and modules here:
 https://docs.python.org/3/reference/import.html#regular-packages
 """
 from .question_1 import get_player_stats
+
+NHL_GAME_URL = 'https://statsapi.web.nhl.com/api/v1/game/{GAME_ID}/feed/live/'
+NB_MAX_GAMES_PER_SEASON = 1353
