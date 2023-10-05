@@ -1,7 +1,11 @@
-import os, requests, tqdm
+import os, requests, tqdm, pickle
 import pandas as pd
 from ift6758.data import NB_MAX_REGULAR_GAMES_PER_SEASON, NB_MAX_PLAYOFF_GAMES_PER_SEASON
+from enum import Enum
 
+class SeasonType(Enum):
+    REGULAR = '02'
+    PLAYOFF = '03'
 class NHLGameData:
     def __init__(self, data_path, base_url="https://statsapi.web.nhl.com/api/v1/game/{GAME_ID}/feed/live/"):
         if not os.path.exists(data_path):
@@ -21,13 +25,12 @@ class NHLGameData:
         if response.status_code != 200:
             raise Exception(f"Failed to retrieve {url}. Status code: {response.status_code}")
         
-        with open(self.data_path, 'w') as file:
-            file.write(response.text)
-        return response.json()
+        with open(self.data_path, 'wb') as out_file:
+            pickle.dump(self.data, out_file)
             
     
     def fetch_game(self, season, game_type, game_num):
-        game_id = f"{season}0{game_type}0{game_num}"
+        game_id = f"{season}{game_type}{game_num}"
         url = self.base_url.format(GAME_ID=game_id)
         
         if game_id in self.cache:
@@ -48,12 +51,14 @@ class NHLGameData:
     def fetch_season(self, season, regular_games=NB_MAX_REGULAR_GAMES_PER_SEASON, playoff_games=NB_MAX_PLAYOFF_GAMES_PER_SEASON):
 
         # Fetch regular season games
-        for game_num in tqdm(range(1, regular_games + 1)).set_description("Fetching regular season games"):
+        for i in tqdm(range(1, regular_games + 1)).set_description("Fetching regular season games"):
+            game_num = f"{i:04d}"
             print(f"Fetching game {game_num} of {regular_games}")
-            self.fetch_game(season, 2, game_num)
+            self.fetch_game(season, SeasonType.REGULAR, game_num)
         
         # Fetch playoff games
         for game_num in tqdm(range(1, playoff_games + 1)).set_description("Fetching playoff games"):
+            game_num = f"{i:04d}"
             print(f"Fetching game {game_num} of {playoff_games}")
-            self.fetch_game(season, 3, game_num)
+            self.fetch_game(season, SeasonType.PLAYOFF, game_num)
             
