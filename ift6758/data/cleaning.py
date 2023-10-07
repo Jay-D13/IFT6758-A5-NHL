@@ -12,7 +12,15 @@ class DataCleaner:
         
         os.makedirs(data_path_clean, exist_ok=True)
         
-    def extract_events(self, game_path, game_id):
+    def extract_events(self, game_path : str, game_id :str) -> list[dict]:
+        """
+            Filters out events that are not shots or goals then extracts the relevant 
+            information from the remaining events into a list of dictionaries.
+            
+            Args:
+                game_path (str): The path to the game file.
+                game_id (str): The game ID.
+        """
         with open(game_path) as f:
             data = json.load(f)
             
@@ -46,7 +54,13 @@ class DataCleaner:
                 
         return events
     
-    def clean_season(self, season):
+    def clean_season(self, season :int):
+        """
+            Extracts events from all games (playoffs and regular) in a given season and saves the data to a pickle file.
+            
+            Args:
+                season (int): The season year (e.g. 2019 for the 2019-2020 season).
+        """
         season_path = os.path.join(self.data_path_raw, str(season))
         
         for game_type in SeasonType:
@@ -70,7 +84,16 @@ class DataCleaner:
                 # Add to cache
                 self.cache[game_id] = df
         
-    def save_cleaned_data(self, df, season, game_type, game_id):
+    def save_cleaned_data(self, df : pd.DataFrame, season: int, game_type : SeasonType, game_id : str):
+        """
+            Saves a DataFrame to a pickle file.
+            
+            Args:
+                df (DataFrame): The DataFrame to save.
+                season (int): The season year (e.g. 2019 for the 2019-2020 season).
+                game_type (SeasonType): The type of game (regular or playoff).
+                game_id (str): The game ID.
+        """
         cleaned_path = os.path.join(self.data_path_clean, str(season), game_type.name.lower())
         os.makedirs(cleaned_path, exist_ok=True)
         
