@@ -3,13 +3,8 @@ import requests
 import pickle
 import json
 import pandas as pd
-from enum import Enum
 from tqdm import tqdm
-from ift6758.data import NB_MAX_REGULAR_GAMES_PER_SEASON, NHL_GAME_URL
-
-class SeasonType(Enum):
-    REGULAR = '02'
-    PLAYOFF = '03'
+from ift6758.data import NB_MAX_REGULAR_GAMES_PER_SEASON, NHL_GAME_URL, SeasonType
     
 class NHLGameData:
     def __init__(self, data_path, base_url=NHL_GAME_URL):
