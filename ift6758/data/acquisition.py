@@ -5,7 +5,7 @@ import json
 import pandas as pd
 from enum import Enum
 from tqdm import tqdm
-from ift6758.data import NB_MAX_REGULAR_GAMES_PER_SEASON, NB_MAX_PLAYOFF_GAMES_PER_SEASON, NHL_GAME_URL
+from ift6758.data import NB_MAX_REGULAR_GAMES_PER_SEASON, NHL_GAME_URL
 
 class SeasonType(Enum):
     REGULAR = '02'
@@ -18,51 +18,64 @@ class NHLGameData:
         self.cache = {}
         
         os.makedirs(data_path, exist_ok=True)
-        
+
     def __add__(self, other):
         new_instance = NHLGameData(data_path=self.data_path)
         new_instance.cache = {**self.cache, **other.cache}
         return new_instance
+
+    def _ensure_dir(self, path):
+        os.makedirs(path, exist_ok=True)
     
     def _fetch_game_from_api(self, url):
         response = requests.get(url)
         if response.status_code != 200:
-            raise Exception(f"Failed to retrieve {url}. Status code: {response.status_code}")
-        
-        return response.json()
-            
-    def fetch_game(self, season, game_type, game_num):
-        game_id = f"{season}{game_type.value}{game_num:04d}"
-        url = self.base_url.format(GAME_ID=game_id)
-        
-        if game_id in self.cache:
-            return self.cache[game_id]
+            print(f"Failed to retrieve data from {url}.")
+            return None
 
-        # Check locally
-        local_file_path = os.path.join(self.data_path, f"{game_id}.json")
+        return response.json()
+    
+    def fetch_game(self, season, game_type, game_num):
+        game_id = f"{season}{game_type.value}{game_num}"
+        url = self.base_url.format(GAME_ID=game_id)
+
+        game_path = os.path.join(self.data_path, str(season), game_type.name.lower())
+        self._ensure_dir(game_path)
+        local_file_path = os.path.join(game_path, f"{game_id}.json")
+        
         if os.path.exists(local_file_path):
             with open(local_file_path, 'r') as file:
-                data = json.load(file)
-        else: # Get from API
-            print(f"Retrieving data from: {url}...")
+                return json.load(file)
+        else: 
             data = self._fetch_game_from_api(url)
-            
+            if data is None:
+                return None
+                
             with open(local_file_path, 'w') as out_file:
                 json.dump(data, out_file)
-                
-        df = pd.DataFrame(data)
-        self.cache[game_id] = df
-        return df
-    
-    def fetch_season(self, season, regular_games=NB_MAX_REGULAR_GAMES_PER_SEASON, playoff_games=NB_MAX_PLAYOFF_GAMES_PER_SEASON):
-
-        # Fetch regular season games
-        for game_num in tqdm(range(1, regular_games + 1), desc="Fetching regular games"):
-            print(f"Fetching game {game_num} of {regular_games}")
-            self.fetch_game(season, SeasonType.REGULAR, game_num)
         
-        # Fetch playoff games
-        for game_num in tqdm(range(1, playoff_games + 1), desc="Fetching playoff games"):
-            print(f"Fetching game {game_num} of {playoff_games}")
-            self.fetch_game(season, SeasonType.PLAYOFF, game_num)
+        return data
+                
+    def fetch_playoff_games(self, season):
+        """
+            For playoff games, the 2nd digit of the specific number gives the round of the playoffs (1-4), 
+            the 3rd digit specifies the matchup (out of 8), 
+            and the 4th digit specifies the game (out of 7).
+        """
+        for round in range(1, 5):
+            for matchup in range(1, 9):
+                for game in range(1, 8):
+                    if self.fetch_game(season, SeasonType.PLAYOFF, f"{round:02d}{matchup}{game}") is None:
+                        print(f"No data in playoff game {round:02d}{matchup}{game} for season {season}.")
+                        break
+
+    def fetch_regular_games(self, season, num_games):
+        for game_num in range(1, num_games + 1):
+            if self.fetch_game(season, SeasonType.REGULAR, f"{game_num:04d}") is None:
+                print(f"Failed to fetch regular game {game_num} for season {season}.")
+                break
+    
+    def fetch_season(self, season, regular_games=NB_MAX_REGULAR_GAMES_PER_SEASON):
+        self.fetch_regular_games(season, regular_games)
+        self.fetch_playoff_games(season)
     
