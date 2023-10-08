@@ -61,21 +61,27 @@ class DataCleaner:
             Args:
                 season (int): The season year (e.g. 2019 for the 2019-2020 season).
         """
-        season_path = os.path.join(self.data_path_raw, str(season))
+        season_path_raw = os.path.join(self.data_path_raw, str(season))
         
         for game_type in SeasonType:
-            game_type_path = os.path.join(season_path, game_type.name.lower())
+            game_type_path_raw = os.path.join(season_path_raw, game_type.name.lower())
             
-            if not os.path.exists(game_type_path):
+            if not os.path.exists(game_type_path_raw):
                 print(f"No games found for {game_type.name.lower()} in season {season}.")
                 continue
             
-            for game_file in os.listdir(game_type_path):
+            for game_file in os.listdir(game_type_path_raw):
                 game_id, _ = os.path.splitext(game_file)
-                game_path = os.path.join(game_type_path, game_file)
+                
+                # Skip if the game is already on local
+                game_file_path_clean = os.path.join(self.data_path_clean, str(season), game_type.name.lower(), game_id)
+                if os.path.exists(game_file_path_clean + '.pkl'):
+                    continue
+                
+                game_path_raw = os.path.join(game_type_path_raw, game_file)
                 
                 # Extract events from game and convert it to a DataFrame
-                events = self.extract_events(game_path, game_id)
+                events = self.extract_events(game_path_raw, game_id)
                 df = pd.DataFrame(events)
                 
                 # Save to a pickle file
