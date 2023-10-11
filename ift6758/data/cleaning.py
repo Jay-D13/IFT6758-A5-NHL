@@ -59,8 +59,8 @@ class DataCleaner:
                     'shooter': next((p['player']['fullName'] for p in event['players'] if p['playerType'] in ['Shooter', 'Scorer']), None),
                     'goalie': next((p['player']['fullName'] for p in event['players'] if p['playerType'] == 'Goalie'), None),
                     'shot_type': event['result'].get('secondaryType', None),
-                    'empty_net': event['result'].get('emptyNet', False), 
-                    'strength': event['result'].get('strength', None), 
+                    'empty_net': event['result'].get('emptyNet', False),
+                    'strength': event['result'].get('strength', {}).get('name', None),
                 }
                 events.append(data)
             except KeyError as e:
