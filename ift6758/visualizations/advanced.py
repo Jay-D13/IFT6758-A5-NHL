@@ -35,4 +35,4 @@ class AdvancedVisualization:
         team_avg_df = team_avg_df.merge(league_avg_df, how='outer', on=['x','y'], suffixes=('_team','_league'))
         team_avg_df['diff'] = (team_avg_df['shot_avg_team'] - team_avg_df['shot_avg_league']) / ((team_avg_df['shot_avg_team'] + team_avg_df['shot_avg_league']) / 2)
 
-        return team_avg_df
+        return team_avg_df.loc[team_avg_df.team == team_name]
