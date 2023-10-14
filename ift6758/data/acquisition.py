@@ -1,8 +1,6 @@
 import os
 import requests
 import pickle
-import json
-import pandas as pd
 from tqdm import tqdm
 from ift6758.data import NB_MAX_REGULAR_GAMES_PER_SEASON, NHL_GAME_URL, SeasonType
     

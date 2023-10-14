@@ -1,8 +1,7 @@
+from datetime import datetime
 import pandas as pd
-import json
-import pickle
 import os
-from ift6758.data import IGNORE_EVENTS, SeasonType
+from ift6758.data import IGNORE_EVENTS
 from ift6758.data.acquisition import NHLGameData
 
 class DataCleaner:
@@ -39,15 +38,38 @@ class DataCleaner:
                 game_path (str): The path to the game file.
                 game_id (str): The game ID.
         """
-            
         plays = data['liveData']['plays']['allPlays']
         events = []
+
+        dateFormat = "%Y-%m-%dT%H:%M:%SZ"
+        periodsInfo = data['liveData']['linescore']['periods']
+        home_name = data['gameData']['teams']['home']['name']
         
         for event in plays:
             # Ignore events that are not shots or goals
             if event['result']['eventTypeId'] in IGNORE_EVENTS:
                 continue
             
+            # Find if opposite team was on the right or left side
+            event_date = datetime.strptime(event['about']['dateTime'], dateFormat)
+            opposite_team_side = None
+            for period in periodsInfo:
+                period_start_time = datetime.strptime(period['startTime'], dateFormat)
+                period_end_time = datetime.strptime(period['endTime'], dateFormat)
+
+                if event_date >= period_start_time and event_date <= period_end_time:
+                    if event['team']['name'] == home_name:
+                        opposite_team_side = period['away']['rinkSide']
+                    else:
+                        opposite_team_side = period['home']['rinkSide']
+            
+            # If nothing corresponding, put first period sides info
+            if opposite_team_side is None:
+                if event['team']['name'] == home_name:
+                    opposite_team_side = periodsInfo[0]['away']['rinkSide']
+                else:
+                    opposite_team_side = periodsInfo[0]['home']['rinkSide']
+
             try:
                 data = {
                     'game_id': game_id,
@@ -56,11 +78,14 @@ class DataCleaner:
                     'period': event['about']['period'],
                     'team': event['team']['name'],
                     'coordinates': event['coordinates'],
+                    'x': event['coordinates']['x'] if 'x' in event['coordinates'] else None,
+                    'y': event['coordinates']['y'] if 'y' in event['coordinates'] else None,
                     'shooter': next((p['player']['fullName'] for p in event['players'] if p['playerType'] in ['Shooter', 'Scorer']), None),
                     'goalie': next((p['player']['fullName'] for p in event['players'] if p['playerType'] == 'Goalie'), None),
                     'shot_type': event['result'].get('secondaryType', None),
                     'empty_net': event['result'].get('emptyNet', False),
                     'strength': event['result'].get('strength', {}).get('name', None),
+                    'opposite_team_side': opposite_team_side,
                 }
                 events.append(data)
             except KeyError as e:
