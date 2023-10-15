@@ -9,6 +9,7 @@ class AdvancedVisualization:
     
     def load_season_data(self, season:int) -> pd.DataFrame:
         path = self.data_path.format(season=season)
+        self.density_prob_league = None
         return pd.read_pickle(path)
     
     def adjust_coordinates(self, df:pd.DataFrame) -> pd.DataFrame:
@@ -37,15 +38,39 @@ class AdvancedVisualization:
         
         return team_differences
     
+    def get_density_prob(self, xy_kde:np.ndarray, grid_size:int, df:pd.DataFrame):
+        nb_games = df.game_id.nunique()
+        coordinates = df[['x','y']].to_numpy().T
+
+        kernel = stats.gaussian_kde(coordinates)
+
+        # Compute density and scale per grid size (100 square feet) and multiply by shot rate
+        density_prob = kernel(xy_kde) 
+        return grid_size * density_prob * (len(df) / (nb_games))
+    
     def get_data_for_team(self, df:pd.DataFrame, team_name:str) -> pd.DataFrame:
-        df = self.adjust_coordinates(df)
-        league_shot_rate = self.league_average_shot_rate_per_hour_by_location(df)
-        team_differences = self.team_differences(df, league_shot_rate)
-        
-        return team_differences.loc[team_differences.team == team_name]
+        df_copy = df.copy()
+        df_copy = self.adjust_coordinates(df_copy)
+        df_copy = df_copy[df_copy['x'] > 0] # Remove shots done on the other side of the red line (too rare)
+
+        # Define grid size of 100 square feet and x,y coordinates min and max for density prob estimation
+        grid_size = 100
+        x_kde = np.linspace(0, 100, grid_size + 1)
+        y_kde = np.linspace(-42.5, 42.5, grid_size + 1)
+        xy_kde = np.array(np.meshgrid(x_kde, y_kde)).reshape(2, -1)
+
+        if self.density_prob_league is None:
+            self.density_prob_league = self.get_density_prob(xy_kde, grid_size, df_copy)
+
+        team_df = df_copy.loc[df_copy.team == team_name]
+        density_prob_team = self.get_density_prob(xy_kde, grid_size, team_df)
+
+        diff_df = pd.DataFrame()
+        diff_df['diff'] = density_prob_team - self.density_prob_league
+
+        return diff_df
 
     def lissage(self, df):
-        """Je crois on va avoir besoin de scipy.stats (vu les travaux de labs)"""
         x = df[['x']]
         y = df[['y']]
         shot_avg_rel_diff = df[['shot_avg_rel_diff']]
