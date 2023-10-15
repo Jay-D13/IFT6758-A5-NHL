@@ -1,5 +1,7 @@
 import pandas as pd
 import plotly.graph_objects as go
+from scipy import stats
+import numpy as np
 
 class AdvancedVisualization:
     def __init__(self, data_path:str):
@@ -17,7 +19,7 @@ class AdvancedVisualization:
     def league_average_shot_rate_per_hour_by_location(self, df:pd.DataFrame) -> pd.DataFrame:
         nb_games = df.game_id.nunique() # vu que 1 game = 1h
         shot_counts = df.groupby(['x', 'y']).size().reset_index(name='shot_count')
-        shot_counts['shot_avg'] = shot_counts['shot_count'] / nb_games
+        shot_counts['shot_avg_league'] = shot_counts['shot_count'] / nb_games
         
         return shot_counts
     
@@ -26,12 +28,12 @@ class AdvancedVisualization:
         nb_games_per_team = df.groupby('team')['game_id'].nunique().reset_index(name='nb_games') # or hours
         
         team_differences = pd.merge(shot_counts_per_team, nb_games_per_team, on='team', how='left')
-        team_differences = pd.merge(team_differences, league_shot_rate[['x','y','shot_avg']],on=['x','y'], how='left')
+        team_differences = pd.merge(team_differences, league_shot_rate[['x','y','shot_avg_league']],on=['x','y'], how='left')
         
-        team_differences['shot_rate_per_hour'] = team_differences['shot_count'] / team_differences['nb_games']
-        team_differences['shot_rate_diff'] = team_differences['shot_rate_per_hour'] - team_differences['shot_avg']
-        team_differences['shot_rate_diff_percentage'] = (team_differences['shot_rate_diff'] / team_differences['shot_rate_per_hour']) * 100
-        team_differences['shot_rate_rel_diff'] = (2 * team_differences['shot_rate_diff'] / (team_differences['shot_rate_per_hour'] + team_differences['shot_avg']))
+        team_differences['shot_avg_team'] = team_differences['shot_count'] / team_differences['nb_games']
+        team_differences['shot_avg_diff'] = team_differences['shot_avg_team'] - team_differences['shot_avg_league']
+        team_differences['shot_avg_diff_percentage'] = (team_differences['shot_avg_diff'] / team_differences['shot_avg_team']) * 100
+        team_differences['shot_avg_rel_diff'] = (2 * team_differences['shot_avg_diff'] / (team_differences['shot_avg_team'] + team_differences['shot_avg_league']))
         
         return team_differences
     
@@ -44,6 +46,11 @@ class AdvancedVisualization:
 
     def lissage(self, df):
         """Je crois on va avoir besoin de scipy.stats (vu les travaux de labs)"""
+        x = df[['x']]
+        y = df[['y']]
+        shot_avg_rel_diff = df[['shot_avg_rel_diff']]
+
+        k = stats.gaussian_kde(np.vstack([x,y,shot_avg_rel_diff]).T)
         pass
     
     def generate_plot(self, df):
