@@ -1,10 +1,8 @@
-from datetime import datetime
 import pandas as pd
 import os
 from ift6758.data import WANTED_EVENTS
 from ift6758.data.acquisition import NHLGameData
 
-DATE_FORMAT = "%Y-%m-%dT%H:%M:%SZ"
 class DataCleaner:
     def __init__(self, data_raw: NHLGameData, data_path_clean):
         self.data_raw = data_raw
@@ -166,3 +164,4 @@ class DataCleaner:
         
         file = os.path.join(cleaned_path, f"{season}.pkl")
         df.to_pickle(file)
+        
