@@ -38,15 +38,26 @@ class AdvancedVisualization:
         
         return team_differences
     
-    def get_density_prob(self, xy_kde:np.ndarray, grid_size:int, df:pd.DataFrame):
-        nb_games = df.game_id.nunique()
+    def get_density_prob(self, xy_kde:np.ndarray, grid_size:int, df:pd.DataFrame, bw_size = None, isLeague = False):
         coordinates = df[['x','y']].to_numpy().T
 
-        kernel = stats.gaussian_kde(coordinates)
+        # Compute number of games (if league, avg. number of games multiply by number of teams)
+        if isLeague:
+            avg_nb_games = df.groupby(['team', 'game_id']).count().groupby('team').count()['time'].mean().round()
+            nb_teams = df.team.nunique()
+            nb_games = avg_nb_games * nb_teams
+        else:
+            nb_games = df.game_id.nunique()
+        
+        # Compute shot rate (number of shots divided by number of games)
+        shotRate = len(df) / nb_games
 
         # Compute density and scale per grid size (100 square feet) and multiply by shot rate
+        kernel = stats.gaussian_kde(coordinates, bw_method=bw_size)
         density_prob = kernel(xy_kde) 
-        return grid_size * density_prob * (len(df) / (nb_games))
+        density_prob = grid_size * density_prob * shotRate
+
+        return density_prob
     
     def get_data_for_team(self, df:pd.DataFrame, team_name:str) -> pd.DataFrame:
         df_copy = df.copy()
@@ -55,15 +66,16 @@ class AdvancedVisualization:
 
         # Define grid size of 100 square feet and x,y coordinates min and max for density prob estimation
         grid_size = 100
+        bw_size = 0.20
         x_kde = np.linspace(0, 100, grid_size + 1)
         y_kde = np.linspace(-42.5, 42.5, grid_size + 1)
         xy_kde = np.array(np.meshgrid(x_kde, y_kde)).reshape(2, -1)
 
         if self.density_prob_league is None:
-            self.density_prob_league = self.get_density_prob(xy_kde, grid_size, df_copy)
+            self.density_prob_league = self.get_density_prob(xy_kde, grid_size, df_copy, isLeague=True, bw_size=bw_size)
 
         team_df = df_copy.loc[df_copy.team == team_name]
-        density_prob_team = self.get_density_prob(xy_kde, grid_size, team_df)
+        density_prob_team = self.get_density_prob(xy_kde, grid_size, team_df, bw_size=bw_size)
 
         diff_df = pd.DataFrame()
         diff_df['diff'] = density_prob_team - self.density_prob_league
