@@ -41,7 +41,8 @@ class DataCleaner:
             str: The opposite team side or None.
         """
         event_team_side = 'home' if event['team']['name'] == home_name else 'away'
-        period = periods_data[event['about']['period']-1]
+        # Cas special pour les shootouts (periodType = SHOOTOUT) car period = 5 mais max(period) = 4
+        period = periods_data[0] if event['about']['periodType'] == 'SHOOTOUT' else periods_data[event['about']['period']-1]
         
         home_rink_side = period['home'].get('rinkSide', None) if 'home' in period and 'rinkSide' in period['home'] else None
         away_rink_side = period['away'].get('rinkSide', None) if 'away' in period and 'rinkSide' in period['away'] else None
