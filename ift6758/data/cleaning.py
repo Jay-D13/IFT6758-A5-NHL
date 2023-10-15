@@ -42,19 +42,15 @@ class DataCleaner:
         Returns:
             str: The opposite team side or None.
         """
-        event_datetime = datetime.strptime(event['about']['dateTime'], DATE_FORMAT)
         event_team_side = 'home' if event['team']['name'] == home_name else 'away'
+        period = periods_data[event['about']['period']-1]
         
-        for period in periods_data:
-            # Extract and check the validity of period information
-            period_start = datetime.strptime(period['startTime'], DATE_FORMAT) if period.get('startTime') else None
-            period_end = datetime.strptime(period['endTime'], DATE_FORMAT) if period.get('endTime') else None
-            home_rink_side = period['home'].get('rinkSide', None) if 'home' in period and 'rinkSide' in period['home'] else None
-            away_rink_side = period['away'].get('rinkSide', None) if 'away' in period and 'rinkSide' in period['away'] else None
-            
-            # Check if the event occurred during this period and if rinkSide information is available
-            if all([period_start, period_end, home_rink_side, away_rink_side]) and period_start <= event_datetime <= period_end:
-                return away_rink_side if event_team_side == 'home' else home_rink_side
+        home_rink_side = period['home'].get('rinkSide', None) if 'home' in period and 'rinkSide' in period['home'] else None
+        away_rink_side = period['away'].get('rinkSide', None) if 'away' in period and 'rinkSide' in period['away'] else None
+        
+        # Check if rinkSide information is available
+        if all([home_rink_side, away_rink_side]):
+            return away_rink_side if event_team_side == 'home' else home_rink_side
 
         return None
 
@@ -148,7 +144,7 @@ class DataCleaner:
                         season_events.extend(self.extract_events(game_data, game_id))
                     
             df = pd.DataFrame(season_events)
-                    
+            
             # Save to a pickle file
             self.save_cleaned_data(df, season)
             

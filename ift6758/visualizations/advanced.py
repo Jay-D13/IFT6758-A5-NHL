@@ -1,38 +1,70 @@
 import pandas as pd
-import os
+import plotly.graph_objects as go
 
 class AdvancedVisualization:
-    def __init__(self, data_path:str, season:int):
-        self.df = pd.read_pickle(os.path.join(data_path, str(season), f'{season}.pkl'))
+    def __init__(self, data_path:str):
+        self.data_path = data_path
+    
+    def load_season_data(self, season:int) -> pd.DataFrame:
+        path = self.data_path.format(season=season)
+        return pd.read_pickle(path)
+    
+    def adjust_coordinates(self, df:pd.DataFrame) -> pd.DataFrame:
+        df.loc[df['opposite_team_side'] == 'left', 'x'] = -df.loc[df['opposite_team_side'] == 'left', 'x']
+        df.loc[df['opposite_team_side'] == 'left', 'y'] = -df.loc[df['opposite_team_side'] == 'left', 'y']
+        return df
 
-    def get_data_for_team(self, team_name:str) -> pd.DataFrame:
-        new_df = self.df.copy()
-        new_df.loc[new_df.opposite_team_side=='left','x'] = -self.df.loc[new_df.opposite_team_side=='left','x']
-        new_df.loc[new_df.opposite_team_side=='left','y'] = -self.df.loc[new_df.opposite_team_side=='left','y']
+    def league_average_shot_rate_per_hour_by_location(self, df:pd.DataFrame) -> pd.DataFrame:
+        nb_games = df.game_id.nunique() # vu que 1 game = 1h
+        shot_counts = df.groupby(['x', 'y']).size().reset_index(name='shot_count')
+        shot_counts['shot_avg'] = shot_counts['shot_count'] / nb_games
+        
+        return shot_counts
+    
+    def team_differences(self, df:pd.DataFrame, league_shot_rate:pd.DataFrame) -> pd.DataFrame:
+        shot_counts_per_team = df.groupby(['team', 'x', 'y']).size().reset_index(name='shot_count')
+        nb_games_per_team = df.groupby('team')['game_id'].nunique().reset_index(name='nb_games') # or hours
+        
+        team_differences = pd.merge(shot_counts_per_team, nb_games_per_team, on='team', how='left')
+        team_differences = pd.merge(team_differences, league_shot_rate[['x','y','shot_avg']],on=['x','y'], how='left')
+        
+        team_differences['shot_rate_per_hour'] = team_differences['shot_count'] / team_differences['nb_games']
+        team_differences['shot_rate_diff'] = team_differences['shot_rate_per_hour'] - team_differences['shot_avg']
+        team_differences['shot_rate_diff_percentage'] = (team_differences['shot_rate_diff'] / team_differences['shot_rate_per_hour']) * 100
+        team_differences['shot_rate_rel_diff'] = (2 * team_differences['shot_rate_diff'] / (team_differences['shot_rate_per_hour'] + team_differences['shot_avg']))
+        
+        return team_differences
+    
+    def get_data_for_team(self, df:pd.DataFrame, team_name:str) -> pd.DataFrame:
+        df = self.adjust_coordinates(df)
+        league_shot_rate = self.league_average_shot_rate_per_hour_by_location(df)
+        team_differences = self.team_differences(df, league_shot_rate)
+        
+        return team_differences.loc[team_differences.team == team_name]
 
-        # Average for league
-        nb_games = new_df.game_id.nunique()
+    def lissage(self, df):
+        """Je crois on va avoir besoin de scipy.stats (vu les travaux de labs)"""
+        pass
+    
+    def generate_plot(self, df):
+        figs = []
 
-        df_dropped = new_df.drop(['team','time','event_type','period','coordinates','shooter','goalie','shot_type','empty_net','strength','opposite_team_side'],axis=1)
+        for team in df['team'].unique():
+            for season in df['season'].unique():
+                fig = go.Figure()
+                fig.add_trace(go.Contour(colorscale='Viridis'))
 
-        df_dropped = df_dropped.groupby(['game_id','x','y']).y.agg('count').to_frame('shot_avg').reset_index()
-        df_dropped['shot_avg'] = df_dropped['shot_avg'] / nb_games
-
-        league_avg_df = df_dropped.drop(['game_id'],axis=1).groupby(['x','y']).sum().reset_index()
-
-        # Average for teams
-        team_events_dropped = new_df.drop(['time','event_type','period','coordinates','shooter','goalie','shot_type','empty_net','strength','opposite_team_side'],axis=1)
-        team_events_dropped = team_events_dropped.groupby(['team','game_id','x','y']).y.agg('count').to_frame('shot_avg').reset_index()
-
-        nb_games_per_team = team_events_dropped.groupby(['team'])['game_id'].nunique()
-        nb_games_per_team = nb_games_per_team.to_frame('game_count')
-
-        team_events_dropped['shot_avg'] = team_events_dropped['shot_avg'] / team_events_dropped.iloc[:, 0].map(nb_games_per_team.game_count).values
-
-        team_avg_df = team_events_dropped.drop(['game_id'],axis=1).groupby(['team','x','y']).sum().reset_index()
-
-        # Merge League and each team
-        team_avg_df = team_avg_df.merge(league_avg_df, how='outer', on=['x','y'], suffixes=('_team','_league'))
-        team_avg_df['diff'] = (team_avg_df['shot_avg_team'] - team_avg_df['shot_avg_league']) / ((team_avg_df['shot_avg_team'] + team_avg_df['shot_avg_league']) / 2)
-
-        return team_avg_df.loc[team_avg_df.team == team_name]
+                fig.update_layout(
+                    images=[go.layout.Image(
+                        source="I CAN'T FIND THE BLOODY RINK IMAGE",
+                        xref="x",
+                        yref="y",
+                        x=0,
+                        y=100,
+                        sizex=100,
+                        sizey=100,
+                        sizing="stretch",
+                        opacity=0.5,
+                        layer="below")])
+                
+                figs.append(fig)
