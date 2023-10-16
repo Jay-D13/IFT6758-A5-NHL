@@ -69,9 +69,9 @@ class AdvancedVisualization:
         
         # Define grid size of 100 square feet and x,y coordinates min and max for density prob estimation
         grid_size = 100
-        bw_size = 0.20
-        x_kde = np.linspace(0, 100, grid_size + 1)
-        y_kde = np.linspace(-42.5, 42.5, grid_size + 1)
+        bw_size = 0.2
+        x_kde = np.linspace(df['x'].min(), df['x'].max(), grid_size + 1)
+        y_kde = np.linspace(df['y'].min(), df['y'].max(), grid_size + 1)
         xy_kde = np.array(np.meshgrid(x_kde, y_kde)).reshape(2, -1)
 
         if self.density_league is None:
@@ -91,5 +91,6 @@ class AdvancedVisualization:
             df = self.load_season_data(season)
             self.season_df[season] = df
             
-        df_team = self.get_data_for_team(df, team_name)
-        return df_team['diff'].to_numpy().reshape((grid_size + 1, grid_size + 1), order='F')
+        df_team = self.get_data_for_team(df.copy(), team_name)
+        # Rotate grid 90 counte clockwise degrees to match the orientation of the rink
+        return np.rot90(df_team['diff'].to_numpy().reshape(grid_size+1, grid_size+1), k=3)
