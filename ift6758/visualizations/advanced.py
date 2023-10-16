@@ -40,7 +40,7 @@ class AdvancedVisualization:
         return team_differences
     
     def get_density_prob(self, xy_kde:np.ndarray, grid_size:int, df:pd.DataFrame, bw_size = None, isLeague = False):
-        coordinates = df[['x', 'y']].to_numpy().T
+        coordinates = np.vstack([df['x'], df['y']])
         
         # Remove NaN values
         coordinates = coordinates[:, ~np.isnan(coordinates).any(axis=0)]
@@ -69,7 +69,7 @@ class AdvancedVisualization:
         
         # Define grid size of 100 square feet and x,y coordinates min and max for density prob estimation
         grid_size = 100
-        bw_size = 0.22
+        bw_size = 0.2
         x_kde = np.linspace(df['x'].min(), df['x'].max(), grid_size + 1)
         y_kde = np.linspace(df['y'].min(), df['y'].max(), grid_size + 1)
         xy_kde = np.array(np.meshgrid(x_kde, y_kde)).reshape(2, -1)
