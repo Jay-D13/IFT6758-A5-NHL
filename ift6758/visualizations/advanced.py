@@ -6,13 +6,11 @@ import numpy as np
 class AdvancedVisualization:
     def __init__(self, data_path:str):
         self.data_path = data_path
-        self.density_league_cache = {}
-        self.density_team_cache = {}
+        self.season_df = {}
     
     def load_season_data(self, season:int) -> pd.DataFrame:
         path = self.data_path.format(season=season)
-        self.density_league_cache[season] = None
-        self.density_team_cache[season] = {}
+        self.density_league = None
         return pd.read_pickle(path)
     
     def adjust_coordinates(self, df:pd.DataFrame) -> pd.DataFrame:
@@ -65,7 +63,7 @@ class AdvancedVisualization:
 
         return density_prob
     
-    def get_data_for_team(self, df:pd.DataFrame, team_name:str, season:int) -> pd.DataFrame:
+    def get_data_for_team(self, df:pd.DataFrame, team_name:str) -> pd.DataFrame:
         df = self.adjust_coordinates(df)
         df = df[df['x'] > 0] # Remove shots done on the other side of the red line (too rare)
         
@@ -76,17 +74,22 @@ class AdvancedVisualization:
         y_kde = np.linspace(-42.5, 42.5, grid_size + 1)
         xy_kde = np.array(np.meshgrid(x_kde, y_kde)).reshape(2, -1)
 
-        if self.density_league_cache[season] is None:
-            self.density_league_cache[season] = self.get_density_prob(xy_kde, grid_size, df, isLeague=True, bw_size=bw_size)
+        if self.density_league is None:
+            self.density_league = self.get_density_prob(xy_kde, grid_size, df, isLeague=True, bw_size=bw_size)
 
         team_df = df[df['team'] == team_name]
         density_prob_team = self.get_density_prob(xy_kde, grid_size, team_df, bw_size=bw_size)
 
-        diff_df = pd.DataFrame({'diff': density_prob_team - self.density_league_cache[season]})
+        diff_df = pd.DataFrame({'diff': density_prob_team - self.density_league})
         return diff_df
                 
     def get_plot_args(self, team_name:str, season:int, grid_size=100) -> dict:
-        df = self.load_season_data(season)
-        df_team = self.get_data_for_team(df, team_name, season)
-        self.density_team_cache[season][team_name] = df_team
+        
+        try:
+            df = self.season_df[season]
+        except KeyError:
+            df = self.load_season_data(season)
+            self.season_df[season] = df
+            
+        df_team = self.get_data_for_team(df, team_name)
         return df_team['diff'].to_numpy().reshape((grid_size + 1, grid_size + 1), order='F')
