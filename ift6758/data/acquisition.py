@@ -29,7 +29,6 @@ class NHLGameData:
         """
         response = self.session.get(url)
         if response.status_code != 200:
-            #print(f"Failed to retrieve data from {url}.")
             return None
 
         return response.json()
@@ -110,7 +109,6 @@ class NHLGameData:
                     for game in range(1, 8):
                         game = self.fetch_game(season, SeasonType.PLAYOFF, f"{round:02d}{matchup}{game}")
                         if game is None:
-                            #print(f"No data in playoff game {round:02d}{matchup}{game} for season {season}.")
                             break
                         self.data[season][game_type.name.lower()].append(game)
             print(f'Found {len(self.data[season][game_type.name.lower()])} {game_type.name.lower()} games for season {season}-{season+1}')
@@ -128,7 +126,6 @@ class NHLGameData:
             for game_num in tqdm(range(1, num_games + 1), desc=f"Downloading {game_type.name.lower()} games for season {season}-{season+1}"):
                 game = self.fetch_game(season, game_type, f"{game_num:04d}")
                 if game is None:
-                    #print(f"Failed to fetch regular game {game_num} for season {season}.")
                     break
                 self.data[season][game_type.name.lower()].append(game)
 
@@ -141,9 +138,9 @@ class NHLGameData:
             
             Args:
                 season (int): The season year (e.g. 2019 for the 2019-2020 season).
-                regular_games (int): The number of regular games to fetch."""
+                regular_games (int): The number of regular games to fetch.
+        """
         self.session = requests.Session()
         self.fetch_regular_games(season, regular_games)
         self.fetch_playoff_games(season)
         self.session.close()
-    

@@ -7,10 +7,11 @@ class AdvancedVisualization:
     def __init__(self, data_path:str):
         self.data_path = data_path
         self.season_df = {}
+        self.density_league = {}
     
     def load_season_data(self, season:int) -> pd.DataFrame:
         path = self.data_path.format(season=season)
-        self.density_league = None
+        self.density_league[season] = None
         return pd.read_pickle(path)
     
     def adjust_coordinates(self, df:pd.DataFrame) -> pd.DataFrame:
@@ -63,7 +64,7 @@ class AdvancedVisualization:
 
         return density_prob
     
-    def get_data_for_team(self, df:pd.DataFrame, team_name:str) -> pd.DataFrame:
+    def get_data_for_team(self, df:pd.DataFrame, team_name:str, season:int) -> pd.DataFrame:
         df = self.adjust_coordinates(df)
         df = df[df['x'] > 0] # Remove shots done on the other side of the red line (too rare)
         
@@ -74,23 +75,22 @@ class AdvancedVisualization:
         y_kde = np.linspace(df['y'].min(), df['y'].max(), grid_size + 1)
         xy_kde = np.array(np.meshgrid(x_kde, y_kde)).reshape(2, -1)
 
-        if self.density_league is None:
-            self.density_league = self.get_density_prob(xy_kde, grid_size, df, isLeague=True, bw_size=bw_size)
+        if self.density_league[season] is None:
+            self.density_league[season] = self.get_density_prob(xy_kde, grid_size, df, isLeague=True, bw_size=bw_size)
 
         team_df = df[df['team'] == team_name]
         density_prob_team = self.get_density_prob(xy_kde, grid_size, team_df, bw_size=bw_size)
 
-        diff_df = pd.DataFrame({'diff': density_prob_team - self.density_league})
+        diff_df = pd.DataFrame({'diff': density_prob_team - self.density_league[season]})
         return diff_df
                 
     def get_plot_args(self, team_name:str, season:int, grid_size=100) -> dict:
-        
         try:
             df = self.season_df[season]
         except KeyError:
             df = self.load_season_data(season)
             self.season_df[season] = df
             
-        df_team = self.get_data_for_team(df.copy(), team_name)
+        df_team = self.get_data_for_team(df.copy(), team_name, season)
         # Rotate grid 90 counte clockwise degrees to match the orientation of the rink
         return np.rot90(df_team['diff'].to_numpy().reshape(grid_size+1, grid_size+1), k=3)
