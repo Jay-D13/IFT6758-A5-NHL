@@ -6,10 +6,11 @@ import numpy as np
 class AdvancedVisualization:
     def __init__(self, data_path:str):
         self.data_path = data_path
+        self.season_df = {}
     
     def load_season_data(self, season:int) -> pd.DataFrame:
         path = self.data_path.format(season=season)
-        self.density_prob_league = None
+        self.density_league = None
         return pd.read_pickle(path)
     
     def adjust_coordinates(self, df:pd.DataFrame) -> pd.DataFrame:
@@ -39,7 +40,10 @@ class AdvancedVisualization:
         return team_differences
     
     def get_density_prob(self, xy_kde:np.ndarray, grid_size:int, df:pd.DataFrame, bw_size = None, isLeague = False):
-        coordinates = df[['x','y']].to_numpy().T
+        coordinates = np.vstack([df['x'], df['y']])
+        
+        # Remove NaN values
+        coordinates = coordinates[:, ~np.isnan(coordinates).any(axis=0)]
 
         # Compute number of games (if league, avg. number of games multiply by number of teams)
         if isLeague:
@@ -51,7 +55,7 @@ class AdvancedVisualization:
         
         # Compute shot rate (number of shots divided by number of games)
         shotRate = len(df) / nb_games
-
+        
         # Compute density and scale per grid size (100 square feet) and multiply by shot rate
         kernel = stats.gaussian_kde(coordinates, bw_method=bw_size)
         density_prob = kernel(xy_kde) 
@@ -60,10 +64,9 @@ class AdvancedVisualization:
         return density_prob
     
     def get_data_for_team(self, df:pd.DataFrame, team_name:str) -> pd.DataFrame:
-        df_copy = df.copy()
-        df_copy = self.adjust_coordinates(df_copy)
-        df_copy = df_copy[df_copy['x'] > 0] # Remove shots done on the other side of the red line (too rare)
-
+        df = self.adjust_coordinates(df)
+        df = df[df['x'] > 0] # Remove shots done on the other side of the red line (too rare)
+        
         # Define grid size of 100 square feet and x,y coordinates min and max for density prob estimation
         grid_size = 100
         bw_size = 0.20
@@ -71,44 +74,22 @@ class AdvancedVisualization:
         y_kde = np.linspace(-42.5, 42.5, grid_size + 1)
         xy_kde = np.array(np.meshgrid(x_kde, y_kde)).reshape(2, -1)
 
-        if self.density_prob_league is None:
-            self.density_prob_league = self.get_density_prob(xy_kde, grid_size, df_copy, isLeague=True, bw_size=bw_size)
+        if self.density_league is None:
+            self.density_league = self.get_density_prob(xy_kde, grid_size, df, isLeague=True, bw_size=bw_size)
 
-        team_df = df_copy.loc[df_copy.team == team_name]
+        team_df = df[df['team'] == team_name]
         density_prob_team = self.get_density_prob(xy_kde, grid_size, team_df, bw_size=bw_size)
 
-        diff_df = pd.DataFrame()
-        diff_df['diff'] = density_prob_team - self.density_prob_league
-
+        diff_df = pd.DataFrame({'diff': density_prob_team - self.density_league})
         return diff_df
-
-    def lissage(self, df):
-        x = df[['x']]
-        y = df[['y']]
-        shot_avg_rel_diff = df[['shot_avg_rel_diff']]
-
-        k = stats.gaussian_kde(np.vstack([x,y,shot_avg_rel_diff]).T)
-        pass
-    
-    def generate_plot(self, df):
-        figs = []
-
-        for team in df['team'].unique():
-            for season in df['season'].unique():
-                fig = go.Figure()
-                fig.add_trace(go.Contour(colorscale='Viridis'))
-
-                fig.update_layout(
-                    images=[go.layout.Image(
-                        source="I CAN'T FIND THE BLOODY RINK IMAGE",
-                        xref="x",
-                        yref="y",
-                        x=0,
-                        y=100,
-                        sizex=100,
-                        sizey=100,
-                        sizing="stretch",
-                        opacity=0.5,
-                        layer="below")])
                 
-                figs.append(fig)
+    def get_plot_args(self, team_name:str, season:int, grid_size=100) -> dict:
+        
+        try:
+            df = self.season_df[season]
+        except KeyError:
+            df = self.load_season_data(season)
+            self.season_df[season] = df
+            
+        df_team = self.get_data_for_team(df, team_name)
+        return df_team['diff'].to_numpy().reshape((grid_size + 1, grid_size + 1), order='F')
