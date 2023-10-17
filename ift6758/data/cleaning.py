@@ -87,10 +87,10 @@ class DataCleaner:
                 'opposite_team_side': opposite_team_side,
             }
         except KeyError as e:
-            print(f"Failed to extract event data for game {game_id} due to missing key: {e}")
+            #print(f"Failed to extract event data for game {game_id} due to missing key: {e}")
             return None
         except Exception as e:
-            print(f"Failed to extract event data for game {game_id} due to unexpected error: {e}")
+            #print(f"Failed to extract event data for game {game_id} due to unexpected error: {e}")
             return None
 
     def extract_events(self, game_data: dict, game_id :str) -> list[dict]:

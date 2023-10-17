@@ -1,5 +1,4 @@
 import pandas as pd
-import plotly.graph_objects as go
 from scipy import stats
 import numpy as np
 
@@ -17,28 +16,7 @@ class AdvancedVisualization:
     def adjust_coordinates(self, df:pd.DataFrame) -> pd.DataFrame:
         df.loc[df['opposite_team_side'] == 'left', 'x'] = -df.loc[df['opposite_team_side'] == 'left', 'x']
         df.loc[df['opposite_team_side'] == 'left', 'y'] = -df.loc[df['opposite_team_side'] == 'left', 'y']
-        return df
-
-    def league_average_shot_rate_per_hour_by_location(self, df:pd.DataFrame) -> pd.DataFrame:
-        nb_games = df.game_id.nunique() # vu que 1 game = 1h
-        shot_counts = df.groupby(['x', 'y']).size().reset_index(name='shot_count')
-        shot_counts['shot_avg_league'] = shot_counts['shot_count'] / nb_games
-        
-        return shot_counts
-    
-    def team_differences(self, df:pd.DataFrame, league_shot_rate:pd.DataFrame) -> pd.DataFrame:
-        shot_counts_per_team = df.groupby(['team', 'x', 'y']).size().reset_index(name='shot_count')
-        nb_games_per_team = df.groupby('team')['game_id'].nunique().reset_index(name='nb_games') # or hours
-        
-        team_differences = pd.merge(shot_counts_per_team, nb_games_per_team, on='team', how='left')
-        team_differences = pd.merge(team_differences, league_shot_rate[['x','y','shot_avg_league']],on=['x','y'], how='left')
-        
-        team_differences['shot_avg_team'] = team_differences['shot_count'] / team_differences['nb_games']
-        team_differences['shot_avg_diff'] = team_differences['shot_avg_team'] - team_differences['shot_avg_league']
-        team_differences['shot_avg_diff_percentage'] = (team_differences['shot_avg_diff'] / team_differences['shot_avg_team']) * 100
-        team_differences['shot_avg_rel_diff'] = (2 * team_differences['shot_avg_diff'] / (team_differences['shot_avg_team'] + team_differences['shot_avg_league']))
-        
-        return team_differences
+        return df    
     
     def get_density_prob(self, xy_kde:np.ndarray, grid_size:int, df:pd.DataFrame, bw_size = None, isLeague = False):
         coordinates = np.vstack([df['x'], df['y']])

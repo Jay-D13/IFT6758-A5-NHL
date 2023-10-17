@@ -1,16 +1,5 @@
 import pandas as pd
-from typing import Tuple
-import numpy as np
-import matplotlib.pyplot as plt
-import json
-import pickle
 import os
-import requests
-import scipy.stats as sp
-
-#from ift6758.visualizations import NB_MAX_REGULAR_GAMES_PER_SEASON, IGNORE_EVENTS, SeasonType
-from ift6758.data.acquisition import NHLGameData
-from ift6758.data.cleaning import DataCleaner
 
 def getdist(row)-> float:
     leftgoal_x = -90.0
