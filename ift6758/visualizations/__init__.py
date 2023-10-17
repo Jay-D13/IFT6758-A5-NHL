@@ -1,1 +1,2 @@
 from ift6758.visualizations.advanced import AdvancedVisualization
+from ift6758.visualizations.visualizations import Visualizer
