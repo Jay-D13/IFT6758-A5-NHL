@@ -48,8 +48,8 @@ def main(opts):
 
 def parse_opts(known=False):
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', type=str, default= '../ift6758/features/trainVal/', help='Data path that contains train and val data')
-    parser.add_argument('--exp_path', type=str, default= '../train/', help='Experience path of parent folder')
+    parser.add_argument('--data_path', type=str, default= './ift6758/features/trainVal/TrainValSets.pk', help='Data path that contains train and val data')
+    parser.add_argument('--exp_path', type=str, default= './train/', help='Experience path of parent folder')
     parser.add_argument('--exp_name', type=str, default= 'exp', help='Experience name for comet ml')
     parser.add_argument('--use_features', nargs='+', type=str, default= '[distance]', help='Feature to train LogisticRegression with')
     
