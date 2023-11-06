@@ -38,6 +38,7 @@ class FeatureEng:
         
         #1 or 0 for empty net
         TrainValSets['empty_net'] = TrainValSets['empty_net'].astype(int)
+        TrainValSets['empty_net'] = TrainValSets['empty_net'].fillna(0)
         
         #1 or 0 for goal or shot respectively
         TrainValSets['is_goal'] = TrainValSets['event_type'].str.contains('GOAL').astype(int)
@@ -47,7 +48,7 @@ class FeatureEng:
         TrainValSets = TrainValSets.drop(columns = ['opposite_team_side', 'x', 'y'])
 
         self.TrainValSets  = TrainValSets.copy()
-    
+        self.TrainValSets.to_pickle('./TrainValSets.pkl')
         return self.TrainValSets
     
     def getTestSet(self, year:int):
