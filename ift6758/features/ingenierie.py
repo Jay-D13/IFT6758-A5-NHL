@@ -31,25 +31,26 @@ class FeatureEng:
             df_2.game_id = df_2.game_id.astype(int)
             dfs.append(df_2)
         
-        TrainValSets = pd.concat(dfs, ignore_index = True)
-        self.unclean = TrainValSets.copy()
+        trainValSets = pd.concat(dfs, ignore_index = True)
+        self.unclean = trainValSets.copy()
         
-        TrainValSets = TrainValSets.drop(columns = ['game_id', 'time', 'period', 'team', 'coordinates', 'shooter', 'goalie', 'strength', 'shot_type'])
+        trainValSets = trainValSets.drop(columns = ['game_id', 'time', 'period', 'team', 'coordinates', 'shooter', 'goalie', 'strength', 'shot_type'])
         
         #1 or 0 for empty net
-        TrainValSets['empty_net'] = TrainValSets['empty_net'].astype(int)
-        TrainValSets['empty_net'] = TrainValSets['empty_net'].fillna(0)
+        trainValSets['empty_net'] = trainValSets['empty_net'].astype(int)
+        trainValSets['empty_net'] = trainValSets['empty_net'].fillna(0)
         
         #1 or 0 for goal or shot respectively
-        TrainValSets['is_goal'] = TrainValSets['event_type'].str.contains('GOAL').astype(int)
-        TrainValSets = TrainValSets.drop(columns = ['event_type'])
-        TrainValSets['distance'] = TrainValSets.apply(getdist, axis = 1)
-        TrainValSets['angle'] = np.degrees(np.arcsin(TrainValSets.y/TrainValSets.distance))
-        TrainValSets = TrainValSets.drop(columns = ['opposite_team_side', 'x', 'y'])
-
-        self.TrainValSets  = TrainValSets.copy()
-        self.TrainValSets.to_pickle('./TrainValSets.pkl')
-        return self.TrainValSets
+        trainValSets['is_goal'] = trainValSets['event_type'].str.contains('GOAL').astype(int)
+        trainValSets = trainValSets.drop(columns = ['event_type'])
+        trainValSets['distance'] = trainValSets.apply(getdist, axis = 1)
+        trainValSets['angle'] = np.degrees(np.arcsin(trainValSets.y/trainValSets.distance))
+        trainValSets = trainValSets.drop(columns = ['opposite_team_side', 'x', 'y'])
+        trainValSets = trainValSets.dropna()
+        
+        self.trainValSets  = trainValSets.copy()
+        self.trainValSets.to_pickle('./TrainValSets.pkl')
+        return self.trainValSets
     
     def getTestSet(self, year:int):
         self.TestSet = pd.read_pickle(os.path.join(self.data_path, str(year), f'{year}.pkl'))

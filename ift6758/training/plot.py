@@ -105,14 +105,14 @@ def plot_calibration_curve(models_prob: dict, y_true, save_to=None):
 
     return fig
 
-def plot_all(models_prob: dict, y_true, save_to_folder):
-    if not os.path.exists(save_to_folder):
+def plot_all(models_prob: dict, y_true, save_to_folder=None):
+    if save_to_folder is not None and not os.path.exists(save_to_folder):
         os.makedirs(save_to_folder)
 
-    plot_roc(models_prob, y_true, os.path.join(save_to_folder, 'roc.png'))
-    plot_calibration_curve(models_prob, y_true, os.path.join(save_to_folder, 'calibration.png'))
+    plot_roc(models_prob, y_true,None if save_to_folder is None else  os.path.join(save_to_folder, 'roc.png'))
+    plot_calibration_curve(models_prob, y_true, None if save_to_folder is None else os.path.join(save_to_folder, 'calibration.png'))
     
     y_random_prob = np.random.uniform(0.0, 1.0, len(y_true))
     models_prob['random'] = y_random_prob
-    plot_goal_rate(models_prob, y_true, os.path.join(save_to_folder, 'goal_rate.png'))
-    plot_cumulative_goal(models_prob, y_true, os.path.join(save_to_folder, 'cumulative_goals.png'))
+    plot_goal_rate(models_prob, y_true, None if save_to_folder is None else os.path.join(save_to_folder, 'goal_rate.png'))
+    plot_cumulative_goal(models_prob, y_true,None if save_to_folder is None else os.path.join(save_to_folder, 'cumulative_goals.png'))

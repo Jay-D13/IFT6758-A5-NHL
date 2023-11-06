@@ -7,9 +7,13 @@ import os
 from ift6758.training.train import BasicModel
 
 def main(opts):
+    # Create train folder
+    if not os.path.exists(os.path.join(opts.exp_path, opts.exp_name)):
+        os.makedirs(os.path.join(opts.exp_path, opts.exp_name))
+
     # Get Data
     train_val = pd.read_pickle(opts.data_path)
-    X_all = train_val.drop(['is_goal'], axis=1)
+    X_all = train_val.drop(['is_goal'], axis=1)[opts.use_features]
     y_all = train_val['is_goal']
 
     # Split into train val
@@ -22,14 +26,17 @@ def main(opts):
         project_name='milestone2'
     )
     exp.set_name(opts.exp_name)
-
-    model = BasicModel(clf=LogisticRegression())
+    tags = opts.use_features
+    tags.append('LogisticRegression')
+    tags.append('BasicModel')
+    exp.add_tags(tags)
 
     # Train model
+    model = BasicModel(clf=LogisticRegression())
     model.train(X_train, y_train)
 
     # Evaluate model
-    accuracy, y_pred = model.evaluate(X_val, y_val)
+    y_pred, accuracy = model.evaluate(X_val, y_val)
     exp.log_metric('accuracy', accuracy)
 
     # Save model
@@ -38,8 +45,6 @@ def main(opts):
     exp.log_model('Model', model_path)
 
     exp.end()
-
-
 
 def parse_opts(known=False):
     parser = argparse.ArgumentParser()
