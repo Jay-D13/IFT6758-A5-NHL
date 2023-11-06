@@ -31,7 +31,7 @@ class FeatureEng:
             df_2.game_id = df_2.game_id.astype(int)
             dfs.append(df_2)
         
-        TrainValSets = pd.concat(dfs).reindex()
+        TrainValSets = pd.concat(dfs, ignore_index = True)
         self.unclean = TrainValSets.copy()
         
         TrainValSets = TrainValSets.drop(columns = ['game_id', 'time', 'period', 'team', 'coordinates', 'shooter', 'goalie', 'strength', 'shot_type'])
