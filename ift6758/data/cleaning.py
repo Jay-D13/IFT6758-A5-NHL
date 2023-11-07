@@ -144,6 +144,9 @@ class DataCleaner:
                     
             df = pd.DataFrame(season_events)
             
+            # Remove events with missing data
+            df = self.remove_bad_data(df)
+            
             # Save to a pickle file
             self.save_cleaned_data(df, season)
             
@@ -165,4 +168,22 @@ class DataCleaner:
         
         file = os.path.join(cleaned_path, f"{season}.pkl")
         df.to_pickle(file)
+        
+    def remove_bad_data(self, df : pd.DataFrame):
+        """
+            Removes events with missing data from a DataFrame.
+            We keep events with missing goalie since he can be out of the net.
+            We keep events with missing strength since it is not always available.
+            
+            Args:
+                df (DataFrame): The DataFrame to clean.
+        """
+        # remove bad coords
+        df = df[df['x'].notna()]
+        df = df[df['y'].notna()]
+        
+        # remove bad shot types
+        df = df[df['shot_type'].notna()]
+        
+        return df
         
