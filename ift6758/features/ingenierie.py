@@ -19,40 +19,73 @@ class FeatureEng:
 
     def __init__(self, data_path: str):
         self.data_path = data_path
-
-    def TrainValSets(self, startYear: int, endYear: int):
+        self.cached_data = {}
+        
+    def fetch_data(self, startYear: int, endYear: int):
+        
+        if (startYear, endYear) in self.cached_data:
+            return self.cached_data[(startYear, endYear)]
+        
         dfs = []
         for year in range(startYear, endYear):
-            df_2 = pd.read_pickle(os.path.join(self.data_path, str(year), f'{year}.pkl'))
-            df_2.game_id = df_2.game_id.astype(str)
-            yearstr = str(year)
-            #taking only the regular season for each year
-            df_2 = df_2.loc[df_2.game_id.str.startswith(yearstr+'02')]
-            df_2.game_id = df_2.game_id.astype(int)
-            dfs.append(df_2)
+            file_path = os.path.join(self.data_path, str(year), f'{year}.pkl')
+            if os.path.exists(file_path):
+                df = pd.read_pickle(file_path)
+                df['game_id'] = df['game_id'].astype(str)
+                # taking only the regular season for each year
+                df = df[df['game_id'].str.startswith(f'{year}02')]
+                df['game_id'] = df['game_id'].astype(int)
+                dfs.append(df)
+            else:
+                print(f"File not found: {file_path}")
         
-        trainValSets = pd.concat(dfs, ignore_index = True)
-        self.unclean = trainValSets.copy()
+        data = pd.concat(dfs, ignore_index = True)
+        self.cached_data[(startYear, endYear)] = data
         
-        trainValSets = trainValSets.drop(columns = ['game_id', 'time', 'period', 'team', 'coordinates', 'shooter', 'goalie', 'strength', 'shot_type'])
+        return data.copy()
+
+    def features_1(self, startYear: int, endYear: int):
+        
+        trainValSets = self.fetch_data(startYear, endYear)
+        
+        columns_to_drop = ['game_id', 'time', 'period', 'team', 'coordinates', 'shooter', 'goalie', 'strength', 'shot_type']
+        trainValSets.drop(columns=columns_to_drop, inplace=True)
         
         #1 or 0 for empty net
-        trainValSets['empty_net'] = trainValSets['empty_net'].astype(int)
         trainValSets['empty_net'] = trainValSets['empty_net'].fillna(0)
+        trainValSets['empty_net'] = trainValSets['empty_net'].astype(int)
         
         #1 or 0 for goal or shot respectively
         trainValSets['is_goal'] = trainValSets['event_type'].str.contains('GOAL').astype(int)
-        trainValSets = trainValSets.drop(columns = ['event_type'])
+        trainValSets.drop(columns=['event_type'], inplace=True)
         trainValSets['distance'] = trainValSets.apply(getdist, axis = 1)
-        trainValSets['angle'] = np.degrees(np.arcsin(trainValSets.y/trainValSets.distance))
-        trainValSets = trainValSets.drop(columns = ['opposite_team_side', 'x', 'y'])
-        trainValSets = trainValSets.dropna()
+        trainValSets['angle'] = np.degrees(np.arcsin(trainValSets['y']/trainValSets['distance'])) # np.degrees(np.arctan2(train_val_sets['y'], train_val_sets['x'])) ?
+        trainValSets.drop(columns = ['opposite_team_side', 'x', 'y'] , inplace=True)
+        # train_val_sets.dropna(inplace=True) # Already managed in cleaning
         
-        self.trainValSets  = trainValSets.copy()
+        self.trainValSets = trainValSets
         self.trainValSets.to_pickle('./TrainValSets.pkl')
         return self.trainValSets
     
+    def features_2(self, startYear: int, endYear: int):
+        """
+        À partir des données déjà triées, incluez les caractéristiques suivantes :
+            ● Secondes de jeu (Game seconds)
+            ● Période de jeu (Game period)
+            ● Coordonnées (x,y, colonnes séparées)
+            ● Distance de tir (Shot distance)
+            ● Angle de tir (Shot angle)
+            ● Type de tir (Shot type)
+        """
+        df = self.fetch_data(startYear, endYear)
+        
+        # secondes de jeu
+    
     def getTestSet(self, year:int):
-        self.TestSet = pd.read_pickle(os.path.join(self.data_path, str(year), f'{year}.pkl'))
-        return self.TestSet
+        file_path = os.path.join(self.data_path, str(year), f'{year}.pkl')
+        if os.path.exists(file_path):
+            self.testSet = pd.read_pickle(file_path)
+            return self.testSet
+        else:
+            raise FileNotFoundError(f"No data found for year {year} at {file_path}.")
     

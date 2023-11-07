@@ -1,5 +1,6 @@
 import pandas as pd
 import os
+from datetime import datetime
 from ift6758.data import WANTED_EVENTS
 from ift6758.data.acquisition import NHLGameData
 
@@ -27,6 +28,45 @@ class DataCleaner:
             self.cache[season] = pd.read_pickle(file)
             return True
         return False
+    
+    def _get_time_of_event(self, event: dict, game_times: dict) -> dict or None:
+        """
+        Finds the time of an event in seconds based on the total game time on the rink.
+        (excludes intermissions, late scheduling, etc.)
+
+        Args:
+            event (dict): The event data.
+            game_times (dict): Information about the game times.
+
+        Returns:
+            dict: The time of the event.
+        """
+        period = event['about']['period']
+        period_time = event['about']['periodTime']
+
+        # Check if we have the start time for the current period
+        if period not in game_times or not game_times[period]['start']:
+            return None
+
+        # Convert 'periodTime' (format 'MM:SS') to seconds
+        minutes, seconds = map(int, period_time.split(':'))
+        current_period_time = minutes * 60 + seconds
+
+
+        total_time = 0
+        # Iterate through previous periods
+        for p in range(1, period):
+            if p in game_times and game_times[p]['start'] and game_times[p]['end']:
+                start = datetime.fromisoformat(game_times[p]['start'])
+                end = datetime.fromisoformat(game_times[p]['end'])
+                total_time += (end - start).total_seconds()
+            else:
+                return None
+
+        # Add the current period time
+        total_time += current_period_time
+
+        return total_time
 
     def _find_opposite_team_side(self, event : dict, periods_data : dict, home_name : str) -> str or None:
         """
@@ -54,7 +94,7 @@ class DataCleaner:
         return None
 
     
-    def _extract_event_data(self, event : dict, game_id : str, opposite_team_side : str) -> dict or None:
+    def _extract_event_data(self, event : dict, game_id : str, opposite_team_side : str, event_time : dict) -> dict or None:
         """
         Extracts the relevant information from an event into a dictionary.
         
@@ -75,6 +115,7 @@ class DataCleaner:
                 'time': event['about']['periodTime'],
                 'event_type': event['result']['eventTypeId'],
                 'period': event['about']['period'],
+                'time_seconds': event_time,
                 'team': event['team']['name'],
                 'coordinates': event['coordinates'],
                 'x': event['coordinates'].get('x', None),
@@ -106,12 +147,24 @@ class DataCleaner:
 
         game_periods_info = game_data['liveData']['linescore']['periods']
         home_name = game_data['gameData']['teams']['home']['name']
+        game_times = {}
         
         events = []
         for event in plays:
+            event_type = event['result']['eventTypeId']
+            
+            if event_type == 'PERIOD_START':
+                period = event['about']['period']
+                game_times[period] = {'start': event['about']['dateTime'], 'end': ''}
+                
+            elif event_type == 'PERIOD_END':
+                period = event['about']['period']
+                game_times[period]['end'] = event['about']['dateTime']
+            
             # Ignore events that are not shots or goals
-            if event['result']['eventTypeId'] not in WANTED_EVENTS:
+            if event_type not in WANTED_EVENTS:
                 continue
+            
             
             # Ignore events that do not have team side information (bad data)      
             opposite_team_side = self._find_opposite_team_side(event, game_periods_info, home_name)
@@ -119,7 +172,8 @@ class DataCleaner:
                 print(f"Failed to extract event data for game {game_id} due to missing rink side information")
                 return None
 
-            event_data = self._extract_event_data(event, game_id, opposite_team_side)
+            time_of_event = self._get_time_of_event(event, game_times)
+            event_data = self._extract_event_data(event, game_id, opposite_team_side, time_of_event)
             if event_data is not None:
                 events.append(event_data)
                     
