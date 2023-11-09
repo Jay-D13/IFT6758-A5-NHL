@@ -28,52 +28,6 @@ class DataCleaner:
             self.cache[season] = pd.read_pickle(file)
             return True
         return False
-    
-    def _get_time_of_event(self, event: dict, game_times: dict) -> dict or None:
-        """
-        Finds the time of an event in seconds based on the total game time on the rink.
-        (excludes intermissions, late scheduling, etc.)
-
-        Args:
-            event (dict): The event data.
-            game_times (dict): Information about the game times.
-
-        Returns:
-            dict: The time of the event.
-        """
-        period = event['about']['period']
-        period_time = event['about']['periodTime']
-
-        # Check if we have the start time for the current period
-        if period not in game_times:
-            return None
-        
-        # Convert 'periodTime' (format 'MM:SS') to seconds
-        minutes, seconds = map(int, period_time.split(':'))
-        periodTime = minutes * 60 + seconds
-        
-        # since shootouts sometimes 00:00 as periodTime, we need to calculate the time manually in this case
-        period5Time = None
-        if period == 5 and event['about']['periodType'] == 'SHOOTOUT' and periodTime == 0:
-            start_shootout = datetime.fromisoformat(game_times[5]['start'])
-            period5Time = (datetime.fromisoformat(event['about']['dateTime']) - start_shootout).total_seconds()
-        
-        current_period_time = period5Time if period5Time is not None else periodTime
-
-        total_time = 0
-        # Iterate through previous periods
-        for p in range(1, period):
-            if p in game_times and 'start' in game_times[p] and 'end' in game_times[p]:
-                start = datetime.fromisoformat(game_times[p]['start'])
-                end = datetime.fromisoformat(game_times[p]['end'])
-                total_time += (end - start).total_seconds()
-            else:
-                return None
-
-        # Add the current period time
-        total_time += current_period_time
-
-        return total_time
 
     def _find_opposite_team_side(self, event : dict, periods_data : dict, home_name : str) -> str or None:
         event_team_side = 'home' if event['team']['name'] == home_name else 'away'
@@ -88,30 +42,14 @@ class DataCleaner:
             return away_rink_side if event_team_side == 'home' else home_rink_side
 
         return None
-
-    def _update_game_times(self, event, game_times):
-        event_type = event['result']['eventTypeId']
-        period_type = event['about']['periodType']
-        period = event['about']['period']
-        
-        if event_type == 'PERIOD_START':
-            game_times[period] = {'start': event['about']['dateTime']}
-            
-        elif event_type == 'PERIOD_END' and period_type != 'SHOOTOUT':
-            game_times[period].update({'end': event['about']['dateTime']})
-            
-        elif event_type == 'SHOOTOUT_COMPLETE': # Shootouts are once again a weird case where they have a PERIOD_END event before the shootout starts
-            period = 5
-            game_times[period].update({'end': event['about']['dateTime']})
     
-    def _extract_event_data(self, event : dict, game_id : str, opposite_team_side : str, game_time : dict) -> dict or None:
+    def _extract_event_data(self, event : dict, game_id : str, opposite_team_side : str) -> dict or None:
         try:
             shooter = next((p['player']['fullName'] for p in event['players'] if p['playerType'] in ['Shooter', 'Scorer']), None)
             goalie = next((p['player']['fullName'] for p in event['players'] if p['playerType'] == 'Goalie'), None)
             
             return {
                 'game_id': game_id,
-                'game_time': game_time,
                 'period': event['about']['period'],
                 'period_time': event['about']['periodTime'],
                 'event_type': event['result']['eventTypeId'],
@@ -130,16 +68,26 @@ class DataCleaner:
         except Exception as e:
             return None
         
-    def _extract_previous_event_data(self, previous_event : dict, event : dict, previous_game_time : int) -> dict or None:
+    def _convert_time_to_seconds(self, time : str) -> int:
+        minutes, seconds = map(int, time.split(':'))
+        return minutes * 60 + seconds
+        
+    def _extract_previous_event_data(self, previous_event : dict, event : dict) -> dict or None:
         try:
-            x = previous_event['coordinates'].get('x', None)
-            y = previous_event['coordinates'].get('y', None)
+            if 'coordinates' not in previous_event:
+                x, y = None, None
+            else:
+                x = previous_event['coordinates'].get('x', None)
+                y = previous_event['coordinates'].get('y', None)
+            event_time = self._convert_time_to_seconds(event['period_time'])
+            prev_time = previous_event['about']['periodTime']
             return {
                 'prev_type': previous_event['result']['eventTypeId'],
+                'prev_period_time': prev_time,
                 'prev_x': x,
                 'prev_y': y,
-                'prev_time': int(event['game_time']) - previous_game_time,
-                'prev_distance': ((event['x'] - x)**2 + (event['y'] - y)**2)**0.5,
+                'time_between_events': event_time - self._convert_time_to_seconds(prev_time),
+                'distance_between_events': ((event['x'] - x)**2 + (event['y'] - y)**2)**0.5 if x is not None and y is not None else None,
             }
         except KeyError as e:
             return None
@@ -159,23 +107,17 @@ class DataCleaner:
 
         game_periods_info = game_data['liveData']['linescore']['periods']
         home_name = game_data['gameData']['teams']['home']['name']
-        game_times = {}
         previous_event = None
 
         events = []
-        for event in plays:
-            eventType = event['result']['eventTypeId']
-           
+        for event in plays:           
             # Ignore shootouts
             if not includeShootouts and event['about']['periodType'] == 'SHOOTOUT':
                 continue
-            
-            # Update game times based on period starts and ends
-            self._update_game_times(event, game_times)
-                
+        
             # Ignore events that are not shots or goals and update previous event
-            if eventType not in WANTED_EVENTS:
-                previous_event = event if eventType in PREVIOUS_EVENTS else None
+            if event['result']['eventTypeId'] not in WANTED_EVENTS:
+                previous_event = event
                 continue
             
             # Ignore events that do not have team side information (bad data) (it also coincidentally avoids overtime periods that don't end when going to shootouts)
@@ -184,15 +126,13 @@ class DataCleaner:
                 print(f"Failed to extract event data for game {game_id} due to missing rink side information")
                 return None
 
-            game_time = self._get_time_of_event(event, game_times)
-            event_data = self._extract_event_data(event, game_id, opposite_team_side, game_time)
+            event_data = self._extract_event_data(event, game_id, opposite_team_side)
             if event_data is None:
                 continue
             
             # Add previous event information
             if keepPreviousEventInfo and previous_event is not None:
-                previous_game_time = self._get_time_of_event(previous_event, game_times)
-                previous_event_data = self._extract_previous_event_data(previous_event, event_data, previous_game_time)
+                previous_event_data = self._extract_previous_event_data(previous_event, event_data)
                 if previous_event_data is not None:
                     event_data.update(previous_event_data)
                 

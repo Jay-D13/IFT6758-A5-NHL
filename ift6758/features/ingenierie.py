@@ -1,8 +1,6 @@
 import pandas as pd
 import numpy as np
 import os
-from ift6758.data.acquisition import NHLGameData
-from ift6758.data import NB_MAX_REGULAR_GAMES_PER_SEASON
         
 class FeatureEng:
 
@@ -10,15 +8,16 @@ class FeatureEng:
         self.data_path = data_path
         self.cached_data = {}
         
-    def _get_dist(self, row)-> float:
-        leftgoal_x = -90.0
-        rightgoal_x = 90.0
-        if row['opposite_team_side']=='left':
-            return ((row['x']-leftgoal_x)**2+row['y']**2)**(1/2)
-        if row['opposite_team_side']=='right':
-            return ((row['x']-rightgoal_x)**2+row['y']**2)**(1/2)
-        else:
+    def _get_dist_goal(self, side, x, y) -> float:
+        goal_x = {
+            'left': -90.0,
+            'right': 90.0
+        }
+        
+        if side not in goal_x:
             return None
+        
+        return round(((x - goal_x[side]) ** 2 + y ** 2) ** 0.5,2)
         
     def _fetch_data(self, startYear: int, endYear: int) -> pd.DataFrame:
         
@@ -47,10 +46,6 @@ class FeatureEng:
         
         trainValSets = self._fetch_data(startYear, endYear)
         
-        columns_to_drop = ['game_id', 'period_time', 'game_time', 'period', 
-                           'team', 'shooter', 'goalie', 'strength', 'shot_type']
-        trainValSets.drop(columns=columns_to_drop, inplace=True)
-        
         #1 or 0 for empty net
         trainValSets['empty_net'] = trainValSets['empty_net'].fillna(0)
         trainValSets['empty_net'] = trainValSets['empty_net'].astype(int)
@@ -58,10 +53,16 @@ class FeatureEng:
         #1 or 0 for goal or shot respectively
         trainValSets['is_goal'] = trainValSets['event_type'].str.contains('GOAL').astype(int)
         trainValSets.drop(columns=['event_type'], inplace=True)
-        trainValSets['distance'] = trainValSets.apply(self._get_dist, axis = 1)
-        trainValSets['angle'] = np.degrees(np.arcsin(trainValSets['y']/trainValSets['distance'])) # np.degrees(np.arctan2(train_val_sets['y'], train_val_sets['x'])) ?
-        trainValSets.drop(columns = ['opposite_team_side', 'x', 'y'] , inplace=True)
-        # train_val_sets.dropna(inplace=True) # Already managed in cleaning
+        trainValSets['distance_goal'] = trainValSets.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
+        trainValSets['angle_shot'] = np.where(trainValSets['distance_goal'] == 0, 
+                                         0, 
+                                         np.degrees(np.arcsin(trainValSets['y'] / trainValSets['distance_goal'])))
+
+        columns_to_drop = ['game_id', 'period_time', 'game_time', 'period', 
+                           'team', 'shooter', 'goalie', 'strength', 'shot_type',
+                           'prev_type', 'prev_x', 'prev_y', 'time_between_events', 'distance_between_events',
+                           'opposite_team_side', 'x', 'y', 'prev_period_time']
+        trainValSets.drop(columns=columns_to_drop, inplace=True, errors='ignore')
         
         self.trainValSets = trainValSets
         self.trainValSets.to_pickle('./TrainValSets.pkl')
@@ -70,16 +71,32 @@ class FeatureEng:
     def features_2(self, startYear: int, endYear: int):
         df = self._fetch_data(startYear, endYear)
         
-        # add distance and angle
-        df['distance'] = df.apply(self._get_dist, axis = 1)
-        df['angle'] = np.degrees(np.arcsin(df['y']/df['distance']))
-        df['angle2'] = np.degrees(np.arctan2(df['y'], df['x'])) # TODO angle to be reviewed
+        # Distance
+        df['distance_goal'] = df.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
+        df['prev_distance_goal'] = df.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['prev_x'], row['prev_y']), axis=1)
         
-        # drop columns
-        columns_to_drop = ['period_time', 'team', 'shooter', 'goalie', 'strength', 'empty_net', 'opposite_team_side']
-        df.drop(columns=columns_to_drop, inplace=True)
+        # Angle
+        df['angle_shot'] = np.where(df['distance_goal'] == 0, 0, round(np.degrees(np.arcsin(df['y'] / df['distance_goal'])),2))
+        df['prev_angle_shot'] = np.where(df['prev_distance_goal'] == 0, 0, round(np.degrees(np.arcsin(df['prev_y'] / df['prev_distance_goal'])),2))
+    
+        # Rebond
+        event_types = ['SHOT', 'MISSED_SHOT', 'BLOCKED_SHOT']
+        df['bounce'] = df['prev_type'].isin(event_types)
+        
+        # Changement d'angle de tir
+        df['angle_change'] = np.where((df['bounce']), df['angle_shot'] - df['prev_angle_shot'], False)    
+            
+        # Vitesse
+        df['speed'] = np.where(df['time_between_events'] > 0, 
+                           round(df['distance_between_events'] / df['time_between_events'],2), 
+                           'instant')
+        
+        columns_to_drop = ['shot_type', 'team', 'shooter', 'goalie', 'strength', 
+                           'empty_net', 'opposite_team_side']
+        df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
+        
         df.reset_index(drop=True, inplace=True)
-        
+    
         return df
     
     def getTestSet(self, year:int):
