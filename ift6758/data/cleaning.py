@@ -175,8 +175,8 @@ class DataCleaner:
         power_play_info = {
             'PPActive': power_play_active,
             'PPTimeElapsed': power_play_time_elapsed,
-            'HomeSkaters': home_skaters + 1, # +1 for goalie
-            'AwaySkaters': away_skaters + 1, # +1 for goalie
+            'HomeSkaters': home_skaters,
+            'AwaySkaters': away_skaters,
         }
 
         return power_play_info
