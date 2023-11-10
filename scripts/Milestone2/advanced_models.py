@@ -1,5 +1,6 @@
 import argparse
 from sklearn.model_selection import train_test_split
+import xgboost as xgb
 import pandas as pd
 from comet_ml import Experiment
 import os
@@ -31,7 +32,7 @@ def main(opts):
     exp.add_tags(tags)
 
     # Train model
-    model = boostModel()
+    model = boostModel(xgb.XGBClassifier(objective='binary:logistic'))
     model.train(X_train, y_train)
 
     # Evaluate model
