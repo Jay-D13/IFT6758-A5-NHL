@@ -68,6 +68,36 @@ class FeatureEng:
         self.trainValSets.to_pickle('./TrainValSets.pkl')
         return self.trainValSets
     
+    def getProbabilities(self, bins: int):
+        
+        df = self.trainValSets.copy()
+        df_dist_bins = pd.cut(x=df['distance_goal'].to_numpy(), bins=bins, include_lowest = True, right = False)
+        df_angle_bins = pd.cut(x=df['angle_shot'].to_numpy(), bins=bins, include_lowest = True, right = False)
+        df['distance_range'] = df_dist_bins
+        df['angle_range'] = df_angle_bins
+
+        df_dist = df.loc[:,['is_goal', 'distance_range']]
+        df_angles = df.loc[:,['is_goal', 'angle_range']]
+        
+        df_dist_goals = df_dist[df_dist['is_goal']==1]
+        df_angle_goals = df_angles[df_angles['is_goal']==1]
+        
+        df_dist_counts = df_dist.groupby(['distance_range'])['is_goal'].count().reset_index(name = 'Total_Shots_Bin')        
+        df_distGoal_counts = df_dist_goals.groupby(['distance_range'])['is_goal'].count().reset_index(name = 'Total_Goals_Bin')
+        df_distGoal_rate = pd.DataFrame()
+        df_distGoal_rate['distances'] = df_dist_counts['distance_range']
+        df_distGoal_rate['GoalDist_Rate'] = df_distGoal_counts['Total_Goals_Bin']/df_dist_counts['Total_Shots_Bin']
+        
+        df_angle_counts = df_angles.groupby(['angle_range'])['is_goal'].count().reset_index(name='Total_Shots_Bin')
+        df_angleGoal_counts = df_angle_goals.groupby(['angle_range'])['is_goal'].count().reset_index(name='Total_Goals_Bin')
+        df_angleGoal_rate = pd.DataFrame()
+        df_angleGoal_rate['angles'] = df_angle_counts['angle_range']
+        df_angleGoal_rate['GoalAngle_Rate'] = df_angleGoal_counts['Total_Goals_Bin']/df_angle_counts['Total_Shots_Bin']
+        
+        final_df = pd.concat([df_distGoal_rate, df_angleGoal_rate], axis=1)
+        
+        return final_df
+
     def features_2(self, startYear: int, endYear: int):
         df = self._fetch_data(startYear, endYear)
         
