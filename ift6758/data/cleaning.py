@@ -52,7 +52,7 @@ class DataCleaner:
                 'game_id': game_id,
                 'period': event['about']['period'],
                 'period_time': event['about']['periodTime'],
-                'event_type': event['result']['eventTypeId'],
+                'type': event['result']['eventTypeId'],
                 'team': event['team']['name'],
                 'x': event['coordinates'].get('x', None),
                 'y': event['coordinates'].get('y', None),
@@ -86,15 +86,104 @@ class DataCleaner:
                 'prev_period_time': prev_time,
                 'prev_x': x,
                 'prev_y': y,
-                'time_between_events': event_time - self._convert_time_to_seconds(prev_time),
-                'distance_between_events': ((event['x'] - x)**2 + (event['y'] - y)**2)**0.5 if x is not None and y is not None else None,
+                'time_since_prev': event_time - self._convert_time_to_seconds(prev_time),
+                'distance_from_prev': round(((event['x'] - x)**2 + (event['y'] - y)**2)**0.5,2) if x is not None and y is not None else None,
             }
         except KeyError as e:
             return None
         except Exception as e:
             return None
+        
+    def extract_penalty_info(self, game_data: dict) -> list[dict]:
+        power_play_indices = game_data['liveData']['plays']['penaltyPlays']
+        all_plays = game_data['liveData']['plays']['allPlays']
+        
+        penalties = []
+        for i in power_play_indices:
+            penalty_seconds = all_plays[i]['result']['penaltyMinutes'] * 60
+            penalty_start_time = self._convert_time_to_seconds(all_plays[i]['about']['periodTime'])
+            penalty_end_time = penalty_start_time + penalty_seconds
+            penalty_period = all_plays[i]['about']['period']
+            
+            if 1200 <= penalty_end_time: # Checking if penalty ends after the end of the period
+                penalty_end_time = 1200
+                
+            penalty_player_team = all_plays[i]['team']['name']
+            penalty_severity = all_plays[i]['result']['penaltySeverity']
+            
+            penalties.append({
+                'start_time': penalty_start_time,
+                'end_time': penalty_end_time,
+                'period': penalty_period,
+                'team_name': penalty_player_team,
+                'severity': penalty_severity,
+            })
+        
+        return penalties
+            
+    
+    def extract_power_play_info(self, penalties: list[dict], event: dict, home_team_name : str) -> dict:
+        
+        is_during_event = lambda penalty, period, time: penalty['period'] == period and penalty['start_time'] <= time < penalty['end_time']
+        
+        current_time = self._convert_time_to_seconds(event['about']['periodTime'])
+        current_period = event['about']['period']
+        event_type = event['result']['eventTypeId']
 
-    def extract_events(self, game_data: dict, game_id :str, includeShootouts : bool, keepPreviousEventInfo :bool) -> list[dict]:
+        # Update penalties end times if goal is scored
+        if event_type == 'GOAL':
+            team_who_scored = event['team']['name']
+            for p in penalties:
+                if is_during_event(p, current_period, current_time) and p['team_name'] != team_who_scored:
+                    
+                    if p['severity'] == 'Minor':
+                        p['end_time'] = current_time
+                        
+                    elif p['severity'] == 'Double Minor':
+                        mid = p['start_time'] + 120
+                        if p['start_time'] <= current_time < mid: # scored in the first half of the double minor
+                            p['end_time'] = p['end_time'] - (mid - current_time)
+                        else:
+                            p['end_time'] = current_time #scored in the second half; end the double minor penalty
+
+        
+        home_skaters = 5
+        away_skaters = 5
+        power_play_active = False
+        power_play_time_elapsed = 0
+        
+        # Determine number of skaters for each team
+        active_penalties = []
+        for p in penalties:
+            if is_during_event(p, current_period, current_time):
+                
+                penalized_team = 'home' if p['team_name'] == home_team_name else 'away'
+                
+                if p['severity'] in ['Minor', 'Double Minor', 'Major']: # Misconducts are not counted as removing a skater
+                    if penalized_team == 'home':
+                        home_skaters -= 1
+                    else:
+                        away_skaters -= 1
+                    
+                active_penalties.append(p)
+
+        # Determine if any penalties are still active
+        if active_penalties:
+            power_play_active = True
+            earliest_start_time = min(p['start_time'] for p in active_penalties)
+            power_play_time_elapsed = current_time - earliest_start_time
+
+        power_play_info = {
+            'PPActive': power_play_active,
+            'PPTimeElapsed': power_play_time_elapsed,
+            'HomeSkaters': home_skaters,
+            'AwaySkaters': away_skaters,
+        }
+
+        return power_play_info
+            
+
+    def extract_events(self, game_data: dict, game_id :str, includeShootouts : bool, keepPreviousEventInfo :bool, includePowerPlay : bool) -> list[dict]:
         """
             Filters out events that are not shots or goals then extracts the relevant 
             information from the remaining events into a list of dictionaries.
@@ -104,70 +193,85 @@ class DataCleaner:
                 game_id (str): The game ID.
         """
         plays = game_data['liveData']['plays']['allPlays']
-
         game_periods_info = game_data['liveData']['linescore']['periods']
         home_name = game_data['gameData']['teams']['home']['name']
         previous_event = None
-
+        
+        penalties = self.extract_penalty_info(game_data)
+        
         events = []
-        for event in plays:           
+        for event in plays:
+                 
             # Ignore shootouts
             if not includeShootouts and event['about']['periodType'] == 'SHOOTOUT':
                 continue
-        
-            # Ignore events that are not shots or goals and update previous event
-            if event['result']['eventTypeId'] not in WANTED_EVENTS:
-                previous_event = event
-                continue
-            
-            # Ignore events that do not have team side information (bad data) (it also coincidentally avoids overtime periods that don't end when going to shootouts)
-            opposite_team_side = self._find_opposite_team_side(event, game_periods_info, home_name)
-            if opposite_team_side is None: # It's always the whole game that is missing this information
-                print(f"Failed to extract event data for game {game_id} due to missing rink side information")
-                return None
-
-            event_data = self._extract_event_data(event, game_id, opposite_team_side)
-            if event_data is None:
-                continue
-            
-            # Add previous event information
-            if keepPreviousEventInfo and previous_event is not None:
-                previous_event_data = self._extract_previous_event_data(previous_event, event_data)
-                if previous_event_data is not None:
-                    event_data.update(previous_event_data)
                 
-            events.append(event_data)
-            previous_event = event
+            # Ignore events that are not shots or goals
+            if event['result']['eventTypeId'] in WANTED_EVENTS:
+                     
+                # Ignore events that do not have team side information (bad data) (it also coincidentally avoids overtime periods that don't end when going to shootouts)
+                opposite_team_side = self._find_opposite_team_side(event, game_periods_info, home_name)
+                if opposite_team_side is None: # It's always the whole game that is missing this information
+                    # print(f"Failed to extract event data for game {game_id} due to missing rink side information")
+                    return None
+
+                # Extract event information
+                event_data = self._extract_event_data(event, game_id, opposite_team_side)
+                if event_data is None:
+                    continue
+                
+                # Extract power play information
+                if includePowerPlay:
+                    power_play_info = self.extract_power_play_info(penalties, event, home_name)
+                    # if power_play_info is not None:
+                    event_data.update(power_play_info)
+                            
+                # Add previous event information
+                if keepPreviousEventInfo and previous_event is not None:
+                    previous_event_data = self._extract_previous_event_data(previous_event, event_data)
+                    if previous_event_data is not None:
+                        event_data.update(previous_event_data)
                     
+                events.append(event_data)
+            
+            # update previous event
+            previous_event = event
+        
         return events
     
-    def clean_season(self, season :int, includeShootouts :bool = True, keepPreviousEventInfo :bool = False):
+    def clean_season(self, season :int, includeShootouts :bool = True, keepPreviousEventInfo :bool = False, includePowerPlay : bool = False):
         """
             Extracts events from all games (playoffs and regular) in a given season and saves the data to a pickle file.
             
             Args:
                 season (int): The season year (e.g. 2019 for the 2019-2020 season).
         """ 
-        if not self._get_from_cache(season):
-            season_events = []
-            for game_type in self.data_raw.data[season]:            
-                for game_data in self.data_raw.data[season][game_type]:                
-                    # Extract events from game and convert it to a DataFrame
-                    game_id = game_data['gamePk']
-                    events = self.extract_events(game_data, game_id, includeShootouts, keepPreviousEventInfo)
-                    if events:
-                        season_events.extend(self.extract_events(game_data, game_id, includeShootouts, keepPreviousEventInfo))
-                    
-            df = pd.DataFrame(season_events)
+        season_events = []
+        for game_type in self.data_raw.data[season]:            
+            for game_data in self.data_raw.data[season][game_type]:                
+                # Extract events from game and convert it to a DataFrame
+                game_id = game_data['gamePk']
+                events = self.extract_events(game_data, game_id, includeShootouts, keepPreviousEventInfo, includePowerPlay)
+                if events:
+                    season_events.extend(self.extract_events(game_data, game_id, includeShootouts, keepPreviousEventInfo, includePowerPlay))
+                
+        df = pd.DataFrame(season_events)
+        
+        # Remove events with missing data
+        df = self.remove_bad_data(df)
+        
+        # Save to a pickle file
+        self.save_cleaned_data(df, season)
+        
+        # Add to cache
+        self.cache[season] = df
             
-            # Remove events with missing data
-            df = self.remove_bad_data(df)
-            
-            # Save to a pickle file
-            self.save_cleaned_data(df, season)
-            
-            # Add to cache
-            self.cache[season] = df
+    def get_cleaned_data(self, season: int) -> pd.DataFrame:
+        if season not in self.cache:
+            if not self._get_from_cache(season):
+                self.clean_season(season)
+                
+        return self.cache[season]
         
     def save_cleaned_data(self, df : pd.DataFrame, season: int):
         """

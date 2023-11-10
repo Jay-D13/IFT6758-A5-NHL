@@ -51,8 +51,8 @@ class FeatureEng:
         trainValSets['empty_net'] = trainValSets['empty_net'].astype(int)
         
         #1 or 0 for goal or shot respectively
-        trainValSets['is_goal'] = trainValSets['event_type'].str.contains('GOAL').astype(int)
-        trainValSets.drop(columns=['event_type'], inplace=True)
+        trainValSets['is_goal'] = trainValSets['type'].str.contains('GOAL').astype(int)
+        trainValSets.drop(columns=['type'], inplace=True)
         trainValSets['distance_goal'] = trainValSets.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
         trainValSets['angle_shot'] = np.where(trainValSets['distance_goal'] == 0, 
                                          0, 
@@ -60,7 +60,7 @@ class FeatureEng:
 
         columns_to_drop = ['game_id', 'period_time', 'game_time', 'period', 
                            'team', 'shooter', 'goalie', 'strength', 'shot_type',
-                           'prev_type', 'prev_x', 'prev_y', 'time_between_events', 'distance_between_events',
+                           'prev_type', 'prev_x', 'prev_y', 'time_since_prev', 'distance_from_prev',
                            'opposite_team_side', 'x', 'y', 'prev_period_time']
         trainValSets.drop(columns=columns_to_drop, inplace=True, errors='ignore')
         
@@ -70,6 +70,11 @@ class FeatureEng:
     
     def features_2(self, startYear: int, endYear: int):
         df = self._fetch_data(startYear, endYear)
+        
+        # Convert period_time to seconds and rename to 'game_seconds'
+        seconds = lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1])
+        df['period_time'] = df['period_time'].apply(seconds)
+        df.rename(columns={'period_time': 'game_seconds'}, inplace=True)
         
         # Distance
         df['distance_goal'] = df.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
@@ -84,15 +89,15 @@ class FeatureEng:
         df['bounce'] = df['prev_type'].isin(event_types)
         
         # Changement d'angle de tir
-        df['angle_change'] = np.where((df['bounce']), df['angle_shot'] - df['prev_angle_shot'], False)    
+        df['angle_change'] = np.where((df['bounce']), df['angle_shot'] - df['prev_angle_shot'], 0)    
             
         # Vitesse
-        df['speed'] = np.where(df['time_between_events'] > 0, 
-                           round(df['distance_between_events'] / df['time_between_events'],2), 
+        df['speed'] = np.where(df['time_since_prev'] > 0, 
+                           round(df['distance_from_prev'] / df['time_since_prev'],2), 
                            'instant')
         
-        columns_to_drop = ['shot_type', 'team', 'shooter', 'goalie', 'strength', 
-                           'empty_net', 'opposite_team_side']
+        columns_to_drop = ['type', 'team', 'shooter', 'goalie', 'strength', 
+                           'empty_net', 'opposite_team_side', 'prev_period_time']
         df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
         
         df.reset_index(drop=True, inplace=True)
