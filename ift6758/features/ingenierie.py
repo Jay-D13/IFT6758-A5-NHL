@@ -71,9 +71,10 @@ class FeatureEng:
     def features_2(self, startYear: int, endYear: int):
         df = self._fetch_data(startYear, endYear)
         
-        # Convert period_time to seconds and rename to 'game_seconds'
-        seconds = lambda x: int(x.split(':')[0]) * 60 + int(x.split(':')[1])
-        df['period_time'] = df['period_time'].apply(seconds)
+        # Convert period_time of event to total game time and rename to 'game_seconds'
+        df['period_time'] = df['period_time'].astype(str)
+        df['period_time'] = df['period_time'].str.split(':').apply(lambda x: int(x[0]) * 60 + int(x[1]))
+        df['period_time'] = df['period_time'] + (df['period'] * 20 * 60)
         df.rename(columns={'period_time': 'game_seconds'}, inplace=True)
         
         # Distance

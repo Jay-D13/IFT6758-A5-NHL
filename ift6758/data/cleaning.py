@@ -83,7 +83,6 @@ class DataCleaner:
             prev_time = previous_event['about']['periodTime']
             return {
                 'prev_type': previous_event['result']['eventTypeId'],
-                'prev_period_time': prev_time,
                 'prev_x': x,
                 'prev_y': y,
                 'time_since_prev': event_time - self._convert_time_to_seconds(prev_time),
