@@ -57,12 +57,26 @@ class FeatureEng:
         trainValSets['angle_shot'] = np.where(trainValSets['distance_goal'] == 0, 
                                          0, 
                                          np.degrees(np.arcsin(trainValSets['y'] / trainValSets['distance_goal'])))
+        
+        anomalies = trainValSets.loc[trainValSets['distance_goal']>=100]
+        anomalies = anomalies.loc[anomalies['is_goal']==1]
+        anomalies = anomalies.loc[anomalies['empty_net']==0]
+        anorm_columns_to_drop = ['period_time', 'game_time', 'period', 
+                           'team', 'shooter', 'goalie', 'strength', 'shot_type',
+                           'prev_type', 'prev_x', 'prev_y', 'time_since_prev', 'distance_from_prev',
+                           'opposite_team_side', 'x', 'y', 'prev_period_time']
+        anomalies.drop(columns=anorm_columns_to_drop, inplace=True, errors='ignore')
+        anomalies = anomalies.sort_values(by=['distance_goal'])
+        self.anomalies = anomalies
 
         columns_to_drop = ['game_id', 'period_time', 'game_time', 'period', 
                            'team', 'shooter', 'goalie', 'strength', 'shot_type',
                            'prev_type', 'prev_x', 'prev_y', 'time_since_prev', 'distance_from_prev',
                            'opposite_team_side', 'x', 'y', 'prev_period_time']
+        
+        
         trainValSets.drop(columns=columns_to_drop, inplace=True, errors='ignore')
+        
         
         self.trainValSets = trainValSets
         self.trainValSets.to_pickle('./TrainValSets.pkl')
@@ -81,18 +95,20 @@ class FeatureEng:
         
         df_dist_goals = df_dist[df_dist['is_goal']==1]
         df_angle_goals = df_angles[df_angles['is_goal']==1]
+
+        shot_counts = df['is_goal'].count()
         
-        df_dist_counts = df_dist.groupby(['distance_range'])['is_goal'].count().reset_index(name = 'Total_Shots_Bin')        
+        #df_dist_counts = df_dist.groupby(['distance_range'])['is_goal'].count().reset_index(name = 'Total_Shots_Bin')        
         df_distGoal_counts = df_dist_goals.groupby(['distance_range'])['is_goal'].count().reset_index(name = 'Total_Goals_Bin')
         df_distGoal_rate = pd.DataFrame()
-        df_distGoal_rate['distances'] = df_dist_counts['distance_range']
-        df_distGoal_rate['GoalDist_Rate'] = df_distGoal_counts['Total_Goals_Bin']/df_dist_counts['Total_Shots_Bin']
+        df_distGoal_rate['distances'] = df_distGoal_counts['distance_range']
+        df_distGoal_rate['GoalDist_Rate'] = df_distGoal_counts['Total_Goals_Bin']/shot_counts
         
-        df_angle_counts = df_angles.groupby(['angle_range'])['is_goal'].count().reset_index(name='Total_Shots_Bin')
+        #df_angle_counts = df_angles.groupby(['angle_range'])['is_goal'].count().reset_index(name='Total_Shots_Bin')
         df_angleGoal_counts = df_angle_goals.groupby(['angle_range'])['is_goal'].count().reset_index(name='Total_Goals_Bin')
         df_angleGoal_rate = pd.DataFrame()
-        df_angleGoal_rate['angles'] = df_angle_counts['angle_range']
-        df_angleGoal_rate['GoalAngle_Rate'] = df_angleGoal_counts['Total_Goals_Bin']/df_angle_counts['Total_Shots_Bin']
+        df_angleGoal_rate['angles'] = df_angleGoal_counts['angle_range']
+        df_angleGoal_rate['GoalAngle_Rate'] = df_angleGoal_counts['Total_Goals_Bin']/shot_counts
         
         final_df = pd.concat([df_distGoal_rate, df_angleGoal_rate], axis=1)
         
