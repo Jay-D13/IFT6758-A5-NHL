@@ -1,7 +1,7 @@
 import pickle
 from sklearn.metrics import accuracy_score
 
-class BoostModel():
+class AdvancedModel():
     def __init__(self, clf):
         self.clf = clf
         
