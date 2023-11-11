@@ -51,7 +51,7 @@ class DataCleaner:
             return {
                 'game_id': game_id,
                 'period': event['about']['period'],
-                'period_time': event['about']['periodTime'],
+                'period_time': self._convert_time_to_seconds(event['about']['periodTime']),
                 'type': event['result']['eventTypeId'],
                 'team': event['team']['name'],
                 'x': event['coordinates'].get('x', None),
@@ -74,23 +74,22 @@ class DataCleaner:
         
     def _extract_previous_event_data(self, previous_event : dict, event : dict) -> dict or None:
         try:
-            if 'coordinates' not in previous_event:
-                x, y = None, None
-            else:
-                x = previous_event['coordinates'].get('x', None)
-                y = previous_event['coordinates'].get('y', None)
-            event_time = self._convert_time_to_seconds(event['period_time'])
-            prev_time = previous_event['about']['periodTime']
+            x = previous_event['coordinates'].get('x', None)
+            y = previous_event['coordinates'].get('y', None)
+            event_time = event['period_time'] * event['period']
+            prev_time = self._convert_time_to_seconds(previous_event['about']['periodTime']) * previous_event['about']['period']
             return {
                 'prev_type': previous_event['result']['eventTypeId'],
                 'prev_x': x,
                 'prev_y': y,
-                'time_since_prev': event_time - self._convert_time_to_seconds(prev_time),
+                'time_since_prev': event_time - prev_time,
                 'distance_from_prev': round(((event['x'] - x)**2 + (event['y'] - y)**2)**0.5,2) if x is not None and y is not None else None,
             }
         except KeyError as e:
+            print(e)
             return None
         except Exception as e:
+            print(e)
             return None
         
     def extract_penalty_info(self, game_data: dict) -> list[dict]:
@@ -253,7 +252,9 @@ class DataCleaner:
                 events.append(event_data)
             
             # update previous event
-            previous_event = event
+            if 'coordinates' in event:
+                if len(event['coordinates']) == 2:
+                    previous_event = event
         
         return events
     
