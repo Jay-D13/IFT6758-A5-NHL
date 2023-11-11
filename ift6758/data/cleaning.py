@@ -98,33 +98,48 @@ class DataCleaner:
         all_plays = game_data['liveData']['plays']['allPlays']
         
         penalties = []
-        for i in power_play_indices:
+        for i in power_play_indices:            
             penalty_seconds = all_plays[i]['result']['penaltyMinutes'] * 60
             penalty_start_time = self._convert_time_to_seconds(all_plays[i]['about']['periodTime'])
             penalty_end_time = penalty_start_time + penalty_seconds
             penalty_period = all_plays[i]['about']['period']
-            
-            if 1200 <= penalty_end_time: # Checking if penalty ends after the end of the period
-                penalty_end_time = 1200
                 
             penalty_player_team = all_plays[i]['team']['name']
             penalty_severity = all_plays[i]['result']['penaltySeverity']
             
+            end_time_next_period = penalty_end_time - 1200 if penalty_end_time > 1200 else None
+            end_period = penalty_period + 1 if penalty_end_time > 1200 else penalty_period
+            
             penalties.append({
                 'start_time': penalty_start_time,
                 'end_time': penalty_end_time,
-                'period': penalty_period,
+                'end_time_next_period': end_time_next_period,
+                'start_period': penalty_period,
+                'end_period': end_period,
                 'team_name': penalty_player_team,
                 'severity': penalty_severity,
             })
         
         return penalties
-            
+    
+    def _penalty_is_active(self, penalty : dict, period : int, time : int) -> bool:
+        if penalty['start_period'] == period:
+            return penalty['start_time'] <= time <= penalty['end_time']
+        elif penalty['end_period'] == period:
+            return 0 <= time <= penalty['end_time_next_period']
+        return False
     
     def extract_power_play_info(self, penalties: list[dict], event: dict, home_team_name : str) -> dict:
         
-        is_during_event = lambda penalty, period, time: penalty['period'] == period and penalty['start_time'] <= time < penalty['end_time']
-        
+        strength = event['result'].get('strength', {}).get('name', None)
+        if strength == 'Even':
+            return {
+            'PPActive': False,
+            'PPTimeElapsed': 0,
+            'HomeSkaters': 5,
+            'AwaySkaters': 5,
+        }
+                
         current_time = self._convert_time_to_seconds(event['about']['periodTime'])
         current_period = event['about']['period']
         event_type = event['result']['eventTypeId']
@@ -133,10 +148,13 @@ class DataCleaner:
         if event_type == 'GOAL':
             team_who_scored = event['team']['name']
             for p in penalties:
-                if is_during_event(p, current_period, current_time) and p['team_name'] != team_who_scored:
+                if self._penalty_is_active(p, current_period, current_time) and p['team_name'] != team_who_scored:
                     
                     if p['severity'] == 'Minor':
-                        p['end_time'] = current_time
+                        if ['start_period'] == current_period:
+                            p['end_time'] = current_time
+                        elif p['end_period'] == current_period:
+                            p['end_time_next_period'] = current_time
                         
                     elif p['severity'] == 'Double Minor':
                         mid = p['start_time'] + 120
@@ -154,7 +172,7 @@ class DataCleaner:
         # Determine number of skaters for each team
         active_penalties = []
         for p in penalties:
-            if is_during_event(p, current_period, current_time):
+            if self._penalty_is_active(p, current_period, current_time):
                 
                 penalized_team = 'home' if p['team_name'] == home_team_name else 'away'
                 
@@ -175,8 +193,9 @@ class DataCleaner:
         power_play_info = {
             'PPActive': power_play_active,
             'PPTimeElapsed': power_play_time_elapsed,
-            'HomeSkaters': home_skaters,
-            'AwaySkaters': away_skaters,
+            # "une équipe n’aura pas moins de 4 patineurs, y compris le gardien sur la glace à un moment donné"
+            'HomeSkaters': 3 if home_skaters < 3 else home_skaters,
+            'AwaySkaters': 3 if away_skaters < 3 else away_skaters,
         }
 
         return power_play_info
