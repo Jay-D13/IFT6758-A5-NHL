@@ -1,9 +1,10 @@
 import argparse
 from sklearn.model_selection import train_test_split
+import xgboost as xgb
 import pandas as pd
 from comet_ml import Experiment
 import os
-from ift6758.training.trainBoost import boostModel
+from ift6758.training.trainBoost import AdvancedModel
 
 def main(opts):
     # Create train folder
@@ -31,7 +32,7 @@ def main(opts):
     exp.add_tags(tags)
 
     # Train model
-    model = boostModel()
+    model = AdvancedModel(xgb.XGBClassifier(objective='binary:logistic'))
     model.train(X_train, y_train)
 
     # Evaluate model
