@@ -88,8 +88,8 @@ def plot_calibration_curve(models_prob: dict, y_true, save_to=None):
             y_true,
             y_pred_prob,
             name=model_name,
-            n_bins=40,
             ax=ax,
+            strategy='quantile',
             ref_line=i==0
         )
 
