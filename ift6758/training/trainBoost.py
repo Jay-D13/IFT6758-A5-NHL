@@ -6,7 +6,7 @@ class AdvancedModel():
         self.clf = clf
         
     def train(self, X_train, y_train):
-        self.clf = slef.clf.fit(X_train, y_train)
+        self.clf = self.clf.fit(X_train, y_train)
         return self.clf
     
     def evaluate(self, X_val, y_val):
