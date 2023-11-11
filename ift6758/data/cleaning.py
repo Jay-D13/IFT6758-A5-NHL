@@ -73,9 +73,10 @@ class DataCleaner:
         return minutes * 60 + seconds
         
     def _extract_previous_event_data(self, previous_event : dict, event : dict) -> dict or None:
+        
         try:
-            x = previous_event['coordinates'].get('x', None)
-            y = previous_event['coordinates'].get('y', None)
+            x = previous_event['coordinates']['x']
+            y = previous_event['coordinates']['y']
             event_time = event['period_time'] * event['period']
             prev_time = self._convert_time_to_seconds(previous_event['about']['periodTime']) * previous_event['about']['period']
             return {
@@ -86,10 +87,9 @@ class DataCleaner:
                 'distance_from_prev': round(((event['x'] - x)**2 + (event['y'] - y)**2)**0.5,2) if x is not None and y is not None else None,
             }
         except KeyError as e:
-            print(e)
             return None
         except Exception as e:
-            print(e)
+            # will happen because we have a few events with missing coordinates but we clean the dataframe later so all is good
             return None
         
     def extract_penalty_info(self, game_data: dict) -> list[dict]:
@@ -324,6 +324,9 @@ class DataCleaner:
         
         # remove bad shot types
         df = df[df['shot_type'].notna()]
+        
+        # There's one previous event that's missing data
+        df = df[df['prev_type'].notna()]
         
         return df
         
