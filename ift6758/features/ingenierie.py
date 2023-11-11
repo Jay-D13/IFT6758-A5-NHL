@@ -61,8 +61,7 @@ class FeatureEng:
         anomalies = trainValSets.loc[trainValSets['distance_goal']>=100]
         anomalies = anomalies.loc[anomalies['is_goal']==1]
         anomalies = anomalies.loc[anomalies['empty_net']==0]
-        anorm_columns_to_drop = ['period_time', 'game_time', 'period', 
-                           'team', 'shooter', 'goalie', 'strength', 'shot_type',
+        anorm_columns_to_drop = ['game_time', 'team', 'shooter', 'goalie', 'strength', 'shot_type',
                            'prev_type', 'prev_x', 'prev_y', 'time_since_prev', 'distance_from_prev',
                            'opposite_team_side', 'x', 'y', 'prev_period_time']
         anomalies.drop(columns=anorm_columns_to_drop, inplace=True, errors='ignore')
@@ -99,16 +98,18 @@ class FeatureEng:
         shot_counts = df['is_goal'].count()
         
         #df_dist_counts = df_dist.groupby(['distance_range'])['is_goal'].count().reset_index(name = 'Total_Shots_Bin')        
-        df_distGoal_counts = df_dist_goals.groupby(['distance_range'])['is_goal'].count().reset_index(name = 'Total_Goals_Bin')
+        df_distGoal_goalCounts = df_dist_goals.groupby(['distance_range'])['is_goal'].count().reset_index(name = 'Count_Goals_Bin')
+        df_distGoal_totalCounts = df.groupby(['distance_range'])['is_goal'].count().reset_index(name = 'Total_Count_Goals_Bin')
         df_distGoal_rate = pd.DataFrame()
-        df_distGoal_rate['distances'] = df_distGoal_counts['distance_range']
-        df_distGoal_rate['GoalDist_Rate'] = df_distGoal_counts['Total_Goals_Bin']/shot_counts
+        df_distGoal_rate['distances'] = df_distGoal_goalCounts['distance_range']
+        df_distGoal_rate['GoalDist_Rate'] = df_distGoal_goalCounts['Count_Goals_Bin'] / df_distGoal_totalCounts['Total_Count_Goals_Bin']
         
         #df_angle_counts = df_angles.groupby(['angle_range'])['is_goal'].count().reset_index(name='Total_Shots_Bin')
-        df_angleGoal_counts = df_angle_goals.groupby(['angle_range'])['is_goal'].count().reset_index(name='Total_Goals_Bin')
+        df_angleGoal_goalCounts = df_angle_goals.groupby(['angle_range'])['is_goal'].count().reset_index(name='Count_Goals_Bin')
+        df_angleGoal_totalCounts = df.groupby(['angle_range'])['is_goal'].count().reset_index(name='Total_Count_Goals_Bin')
         df_angleGoal_rate = pd.DataFrame()
-        df_angleGoal_rate['angles'] = df_angleGoal_counts['angle_range']
-        df_angleGoal_rate['GoalAngle_Rate'] = df_angleGoal_counts['Total_Goals_Bin']/shot_counts
+        df_angleGoal_rate['angles'] = df_angleGoal_goalCounts['angle_range']
+        df_angleGoal_rate['GoalAngle_Rate'] = df_angleGoal_goalCounts['Count_Goals_Bin'] / df_angleGoal_totalCounts['Total_Count_Goals_Bin']
         
         final_df = pd.concat([df_distGoal_rate, df_angleGoal_rate], axis=1)
         
