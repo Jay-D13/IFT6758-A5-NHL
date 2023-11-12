@@ -45,7 +45,7 @@ class AdvancedModel():
         plt.ylabel('Hyperparameter Values')
         plt.xlabel('Accuracy')
         plt.title('Hyperparameter Values vs. Accuracy for XGBoost Classifier (all features)')
-        plt.tight_layout()
+        #plt.tight_layout()
         plt.savefig('/Users/JJKaufman/DESS/IFT6758/IFT6758-A5-NHL/ift6758/training/figures/hyperparameters.png')
         plt.show()
         
