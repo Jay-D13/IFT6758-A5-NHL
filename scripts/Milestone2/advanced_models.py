@@ -23,16 +23,16 @@ def main(opts):
     X_train, X_val, y_train, y_val = train_test_split(X_all, y_all, test_size=0.3, random_state=42)
 
     #Setup Experiment
-    # exp = Experiment(
-    #     api_key=os.environ.get('COMET_API_KEY'),
-    #     workspace='ift6758-a5-nhl',
-    #     project_name='milestone2'
-    # )
-    # exp.set_name(opts.exp_name)
-    # tags = opts.use_features
-    # tags.append('XGBoost')
-    # tags.append('AdvancedModel')
-    # exp.add_tags(tags)
+    exp = Experiment(
+        api_key=os.environ.get('COMET_API_KEY'),
+        workspace='ift6758-a5-nhl',
+        project_name='milestone2'
+    )
+    exp.set_name(opts.exp_name)
+    tags = ['AllFeatures'] #opts.use_features
+    tags.append('XGBoost')
+    tags.append('AdvancedModel')
+    exp.add_tags(tags)
     
     #selecting hyper parameters
     param_grid = {'learning_rate': stats.uniform(0.01, 0.1), 'max_depth': stats.randint(3,10), 'subsample': stats.uniform(0.5, 0.5), 'n_estimators': stats.randint(50, 200)}
@@ -50,14 +50,14 @@ def main(opts):
 
     # Evaluate model
     y_pred, accuracy = model.evaluate(X_val, y_val)
-    #exp.log_metric('accuracy', accuracy)
+    exp.log_metric('accuracy', accuracy)
 
     # Save model
     model_path = os.path.join(opts.exp_path, opts.exp_name, 'model.pkl')
     model.save(model_path)
-    #exp.log_model('Model', model_path)
+    exp.log_model('Model', model_path)
 
-    #exp.end()
+    exp.end()
     
 def parse_opts(known=False):
     parser = argparse.ArgumentParser()

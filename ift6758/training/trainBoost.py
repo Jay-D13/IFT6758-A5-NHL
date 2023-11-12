@@ -39,7 +39,7 @@ class AdvancedModel():
         acc_vals = [d['accuracy'] for d in data]
         
         plt.barh(range(len(param_vals)), acc_vals)
-        plt.xlim(0.9095, .9099)
+        plt.xlim(0.909, .9099)
         plt.yticks(range(len(param_vals)), param_vals, fontsize = 6)
         plt.xticks(fontsize = 8)
         plt.ylabel('Hyperparameter Values')
