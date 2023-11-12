@@ -119,8 +119,6 @@ class FeatureEng:
         df = self._fetch_data(startYear, endYear)
         
         # Convert period_time of event to total game time and rename to 'game_seconds'
-        df['period_time'] = df['period_time'].astype(str)
-        df['period_time'] = df['period_time'].str.split(':').apply(lambda x: int(x[0]) * 60 + int(x[1]))
         df['period_time'] = df['period_time'] + (df['period'] * 20 * 60)
         df.rename(columns={'period_time': 'game_seconds'}, inplace=True)
         
@@ -140,13 +138,15 @@ class FeatureEng:
         df['angle_change'] = np.where((df['bounce']), df['angle_shot'] - df['prev_angle_shot'], 0)    
             
         # Vitesse
-        df['speed'] = np.where(df['time_since_prev'] > 0, 
-                           round(df['distance_from_prev'] / df['time_since_prev'],2), 
-                           'instant')
+        # Replace 0 with 1 to avoid division by 0
+        df['time_since_prev'] = df['time_since_prev'].replace(0, 1)
+        df['speed'] = round(df['distance_from_prev'] / df['time_since_prev'],2)
         
-        columns_to_drop = ['type', 'team', 'shooter', 'goalie', 'strength', 
-                           'empty_net', 'opposite_team_side', 'prev_period_time']
-        df.drop(columns=columns_to_drop, inplace=True, errors='ignore')
+        # Add target column
+        df['is_goal'] = df['type'].str.contains('GOAL').astype(int)
+        
+        columns_to_drop = ['team', 'shooter', 'goalie', 'opposite_team_side', 'prev_period_time', 'type']
+        df.drop(columns=columns_to_drop, inplace=True, errors='ignore')   
         
         df.reset_index(drop=True, inplace=True)
     
@@ -160,3 +160,5 @@ class FeatureEng:
         else:
             raise FileNotFoundError(f"No data found for year {year} at {file_path}.")
     
+    def encodeCategories(self, df: pd.DataFrame, categorical_features: list):
+        return pd.get_dummies(df, columns=categorical_features, drop_first=True)
