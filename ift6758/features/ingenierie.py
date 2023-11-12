@@ -149,7 +149,7 @@ class FeatureEng:
         df.drop(columns=columns_to_drop, inplace=True, errors='ignore')   
         
         df.reset_index(drop=True, inplace=True)
-    
+        df.to_pickle('./TrainValSets2.pkl')
         return df
     
     def getTestSet(self, year:int):
