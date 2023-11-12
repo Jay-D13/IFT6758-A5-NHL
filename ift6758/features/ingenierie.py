@@ -145,7 +145,7 @@ class FeatureEng:
         # Add target column
         df['is_goal'] = df['type'].str.contains('GOAL').astype(int)
         
-        columns_to_drop = ['shooter', 'goalie', 'opposite_team_side', 'prev_period_time', 'type']
+        columns_to_drop = ['strength','shooter', 'goalie', 'opposite_team_side', 'prev_period_time', 'type']
         if drop_teams:
             columns_to_drop += ['team']
         df.drop(columns=columns_to_drop, inplace=True, errors='ignore')   
