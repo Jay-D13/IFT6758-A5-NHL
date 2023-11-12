@@ -115,7 +115,7 @@ class FeatureEng:
         
         return final_df
 
-    def features_2(self, startYear: int, endYear: int):
+    def features_2(self, startYear: int, endYear: int, drop_teams = True):
         df = self._fetch_data(startYear, endYear)
         
         # Convert period_time of event to total game time and rename to 'game_seconds'
@@ -145,13 +145,22 @@ class FeatureEng:
         # Add target column
         df['is_goal'] = df['type'].str.contains('GOAL').astype(int)
         
-        columns_to_drop = ['team', 'shooter', 'goalie', 'opposite_team_side', 'prev_period_time', 'type']
+        columns_to_drop = ['shooter', 'goalie', 'opposite_team_side', 'prev_period_time', 'type']
+        if drop_teams:
+            columns_to_drop += ['team']
         df.drop(columns=columns_to_drop, inplace=True, errors='ignore')   
         
         df.reset_index(drop=True, inplace=True)
         df.to_pickle('./TrainValSets2.pkl')
         return df
     
+    def remove_first_team_games(self, df: pd.DataFrame, team_games: dict[list], num_regular : int = 15 , num_playoffs : int = 5):
+        # Remove first num_regular regular season games and first num_playoffs playoff games for each team
+        for team, games in team_games.items():
+            regular = games['regular']
+            playoffs = games['playoffs']
+            df.drop(df[(df['team'] == team) & (df['game_id'].isin(regular[:num_regular] + playoffs[:num_playoffs]))].index, inplace=True)
+            
     def getTestSet(self, year:int):
         file_path = os.path.join(self.data_path, str(year), f'{year}.pkl')
         if os.path.exists(file_path):
