@@ -22,7 +22,7 @@ def main(opts):
     # Split into train val
     X_train, X_val, y_train, y_val = train_test_split(X_all, y_all, test_size=0.3, random_state=42)
 
-    # Setup Experiment
+    #Setup Experiment
     # exp = Experiment(
     #     api_key=os.environ.get('COMET_API_KEY'),
     #     workspace='ift6758-a5-nhl',
@@ -39,10 +39,10 @@ def main(opts):
     xgb_model = AdvancedModel(xgb.XGBClassifier())
     best_params = xgb_model.cross_val(param_grid, X_train, y_train)
     results2 = xgb_model.cvResults
+    
+    #saving hyper parameters to be graphed
     with open('/Users/JJKaufman/DESS/IFT6758/IFT6758-A5-NHL/ift6758/training/figures/results.pickle', 'wb') as handle:
         pickle.dump(results2, handle, protocol=pickle.HIGHEST_PROTOCOL)
-    
-    #xgb_model.save_plot('/Users/JJKaufman/DESS/IFT6758/IFT6758-A5-NHL/ift6758/training/figures/hyperparameters.png')
     
     # Train model
     model = AdvancedModel(xgb.XGBClassifier(randomstate = 42, **best_params))

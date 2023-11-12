@@ -34,13 +34,16 @@ class AdvancedModel():
         params = cvResults['params']
         scores = cvResults['mean_test_score']
         data = [{'params': param, 'accuracy': score} for param, score in zip(params, scores)]
+        data = sorted(data, key=lambda x: x['accuracy'] )
         param_vals = [d['params']for d in data]
         acc_vals = [d['accuracy'] for d in data]
-        plt.bar(range(len(param_vals)), acc_vals)
-        plt.ylim(0.93089, .9309075)
-        plt.xticks(range(len(param_vals)), param_vals, fontsize = 8, rotation=90)
-        plt.xlabel('Hyperparameter Values')
-        plt.ylabel('Accuracy')
+        
+        plt.barh(range(len(param_vals)), acc_vals)
+        plt.xlim(0.9095, .9099)
+        plt.yticks(range(len(param_vals)), param_vals, fontsize = 6)
+        plt.xticks(fontsize = 8)
+        plt.ylabel('Hyperparameter Values')
+        plt.xlabel('Accuracy')
         plt.title('Hyperparameter Values vs. Accuracy for XGBoost Classifier (all features)')
         plt.tight_layout()
         plt.savefig('/Users/JJKaufman/DESS/IFT6758/IFT6758-A5-NHL/ift6758/training/figures/hyperparameters.png')
