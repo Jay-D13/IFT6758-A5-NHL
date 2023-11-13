@@ -21,8 +21,8 @@ class FeatureEng:
         
     def _fetch_data(self, startYear: int, endYear: int, keepPlayoffs=False) -> pd.DataFrame:
         
-        if (startYear, endYear) in self.cached_data:
-            return self.cached_data[(startYear, endYear)].copy()
+        if (startYear, endYear, keepPlayoffs) in self.cached_data:
+            return self.cached_data[(startYear, endYear, keepPlayoffs)].copy()
         
         dfs = []
         for year in range(startYear, endYear):
@@ -39,7 +39,7 @@ class FeatureEng:
                 print(f"File not found: {file_path}")
         
         data = pd.concat(dfs, ignore_index = True)
-        self.cached_data[(startYear, endYear)] = data
+        self.cached_data[(startYear, endYear, keepPlayoffs)] = data
         
         return data.copy()
 
@@ -154,12 +154,59 @@ class FeatureEng:
         df.reset_index(drop=True, inplace=True)
         return df
     
-    def remove_first_team_games(self, df: pd.DataFrame, team_games: dict[list], num_regular : int = 15 , num_playoffs : int = 5):
-        # Remove first num_regular regular season games and first num_playoffs playoff games for each team
+    def get_team_games(self, season: int) -> dict[list]:
+        """
+            Returns a dictionary of the teams that played in a given season.
+            The keys are the team names and the values are lists of game IDs.
+        """
+        output = {}
+        
+        df = self._fetch_data(season, season+1, keepPlayoffs=True)
+        team_games = df.groupby('team')['game_id'].unique().to_dict()
         for team, games in team_games.items():
-            regular = games['regular']
-            playoffs = games['playoffs']
-            df.drop(df[(df['team'] == team) & (df['game_id'].isin(regular[:num_regular] + playoffs[:num_playoffs]))].index, inplace=True)
+            regular = []
+            playoffs = []
+            for id in games:
+                type = str(id)[4:6]
+                if type == '02':
+                    regular.append(id)
+                elif type == '03':
+                    playoffs.append(id)
+                    
+            assert len(regular) + len(playoffs) == len(games)
+            
+            output[team] = {'regular': regular, 'playoffs': playoffs}
+        
+        return output
+    
+    def get_team_games_seasons(self, seasonStart: int, seasonEnd: int) -> dict[list]:
+        """
+            Returns a dictionary of the teams that played in a given season range.
+            The keys are the team names and the values are lists of game IDs.
+        """
+        teams = {}
+        for season in range(seasonStart, seasonEnd):
+            team_games = self.get_team_games(season)
+            
+            for team, games in team_games.items():
+                if team not in teams:
+                    teams[team] = {}
+                
+                teams[team][season] = games
+                            
+        return teams
+    
+    def remove_first_team_games(self, df: pd.DataFrame, team_season_games: dict, num_regular : int = 5 , num_playoffs : int = 0):
+        """
+            Removes the first num_regular regular season games and num_playoffs playoff games for each team in the given dataframe.
+        """
+        for team, seasons in team_season_games.items():
+            team_games_to_remove = []
+            for season, games in seasons.items():
+                team_games_to_remove += games['regular'][:num_regular]
+                team_games_to_remove += games['playoffs'][:num_playoffs]
+            
+            df.drop(df[(df['team'] == team) & (df['game_id'].isin(team_games_to_remove))].index, inplace=True)
             
     def getTestSet(self, year:int):
         file_path = os.path.join(self.data_path, str(year), f'{year}.pkl')

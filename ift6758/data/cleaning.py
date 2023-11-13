@@ -291,51 +291,6 @@ class DataCleaner:
                 self.clean_season(season)
                 
         return self.cache[season]
-    
-    def get_team_games(self, season: int) -> dict[list]:
-        """
-            Returns a dictionary of the teams that played in a given season.
-            The keys are the team names and the values are lists of game IDs.
-        """
-        output = {}
-        
-        rows = self.get_cleaned_data(season)
-        team_games = rows.groupby('team')['game_id'].unique().to_dict()
-        for team, games in team_games.items():
-            regular = []
-            playoffs = []
-            for id in games:
-                type = str(id)[4:6]
-                if type == '02':
-                    regular.append(id)
-                elif type == '03':
-                    playoffs.append(id)
-                    
-            assert len(regular) + len(playoffs) == len(games)
-            
-            if team not in output:
-                output[team] = {'regular': [], 'playoffs': []}
-            output[team] = {'regular': regular, 'playoffs': playoffs}
-        
-        return output
-    
-    def get_team_games_seasons(self, seasonStart: int, seasonEnd: int) -> dict[list]:
-        """
-            Returns a dictionary of the teams that played in a given season range.
-            The keys are the team names and the values are lists of game IDs.
-        """
-        teams = {}
-        for season in range(seasonStart, seasonEnd):
-            team_games = self.get_team_games(season)
-            for team, games in team_games.items():
-                if team not in teams:
-                    teams[team] = {'regular': [], 'playoffs': []}
-                regular = games['regular']
-                playoffs = games['playoffs']
-                teams[team]['regular'].extend(regular)
-                teams[team]['playoffs'].extend(playoffs)
-            
-        return teams
         
     def save_cleaned_data(self, df : pd.DataFrame, season: int):
         """
