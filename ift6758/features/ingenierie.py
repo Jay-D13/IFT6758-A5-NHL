@@ -19,7 +19,7 @@ class FeatureEng:
         
         return round(((x - goal_x[side]) ** 2 + y ** 2) ** 0.5,2)
         
-    def _fetch_data(self, startYear: int, endYear: int) -> pd.DataFrame:
+    def _fetch_data(self, startYear: int, endYear: int, keepPlayoffs=False) -> pd.DataFrame:
         
         if (startYear, endYear) in self.cached_data:
             return self.cached_data[(startYear, endYear)].copy()
@@ -31,7 +31,8 @@ class FeatureEng:
                 df = pd.read_pickle(file_path)
                 df['game_id'] = df['game_id'].astype(str)
                 # taking only the regular season for each year
-                df = df[df['game_id'].str.startswith(f'{year}02')]
+                if not keepPlayoffs:
+                    df = df[df['game_id'].str.startswith(f'{year}02')]
                 df['game_id'] = df['game_id'].astype(int)
                 dfs.append(df)
             else:
@@ -115,8 +116,8 @@ class FeatureEng:
         
         return final_df
 
-    def features_2(self, startYear: int, endYear: int, drop_teams = True):
-        df = self._fetch_data(startYear, endYear)
+    def features_2(self, startYear: int, endYear: int, drop_teams = True, keepPlayoffs=False):
+        df = self._fetch_data(startYear, endYear, keepPlayoffs)
         
         # Convert period_time of event to total game time and rename to 'game_seconds'
         df['period_time'] = df['period_time'] + (df['period'] * 20 * 60)
@@ -164,7 +165,7 @@ class FeatureEng:
         file_path = os.path.join(self.data_path, str(year), f'{year}.pkl')
         if os.path.exists(file_path):
             self.testSet = pd.read_pickle(file_path)
-            return self.testSet
+            return self.features_2(year, year+1, keepPlayoffs=True)
         else:
             raise FileNotFoundError(f"No data found for year {year} at {file_path}.")
     
