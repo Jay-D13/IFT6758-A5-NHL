@@ -32,7 +32,7 @@ def main(opts):
     #     project_name='milestone2'
     # )
     # exp.set_name(opts.exp_name)
-    # tags = ['Top21Features'] #opts.use_features
+    # tags = ['AllFeatures'] #opts.use_features
     # tags.append('XGBoost')
     # tags.append('AdvancedModel')
     # exp.add_tags(tags)
