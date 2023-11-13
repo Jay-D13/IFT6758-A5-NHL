@@ -18,7 +18,10 @@ def main(opts):
     train_val = pd.read_pickle(opts.data_path)
     X_all = train_val.drop(['is_goal'], axis=1)[opts.use_features]
     y_all = train_val['is_goal']
-
+    
+    
+    
+    
     # Split into train val
     X_train, X_val, y_train, y_val = train_test_split(X_all, y_all, test_size=0.3, random_state=42)
 
@@ -29,19 +32,20 @@ def main(opts):
         project_name='milestone2'
     )
     exp.set_name(opts.exp_name)
-    tags = ['AllFeatures'] #opts.use_features
+    tags = ['Top21Features'] #opts.use_features
     tags.append('XGBoost')
     tags.append('AdvancedModel')
     exp.add_tags(tags)
-    
+
+    xgb_model = AdvancedModel(xgb.XGBClassifier())
+        
     #selecting hyper parameters
     param_grid = {'learning_rate': stats.uniform(0.01, 0.1), 'max_depth': stats.randint(3,10), 'subsample': stats.uniform(0.5, 0.5), 'n_estimators': stats.randint(50, 200)}
-    xgb_model = AdvancedModel(xgb.XGBClassifier())
     best_params = xgb_model.cross_val(param_grid, X_train, y_train)
     results2 = xgb_model.cvResults
     
     #saving hyper parameters to be graphed
-    with open('/Users/JJKaufman/DESS/IFT6758/IFT6758-A5-NHL/ift6758/training/figures/results.pickle', 'wb') as handle:
+    with open('/Users/JJKaufman/DESS/IFT6758/IFT6758-A5-NHL/ift6758/training/figures/results3.pickle', 'wb') as handle:
         pickle.dump(results2, handle, protocol=pickle.HIGHEST_PROTOCOL)
     
     # Train model
