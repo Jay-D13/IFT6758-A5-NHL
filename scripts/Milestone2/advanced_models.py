@@ -26,16 +26,16 @@ def main(opts):
     X_train, X_val, y_train, y_val = train_test_split(X_all, y_all, test_size=0.3, random_state=42)
 
     #Setup Experiment
-    exp = Experiment(
-        api_key=os.environ.get('COMET_API_KEY'),
-        workspace='ift6758-a5-nhl',
-        project_name='milestone2'
-    )
-    exp.set_name(opts.exp_name)
-    tags = ['Top21Features'] #opts.use_features
-    tags.append('XGBoost')
-    tags.append('AdvancedModel')
-    exp.add_tags(tags)
+    # exp = Experiment(
+    #     api_key=os.environ.get('COMET_API_KEY'),
+    #     workspace='ift6758-a5-nhl',
+    #     project_name='milestone2'
+    # )
+    # exp.set_name(opts.exp_name)
+    # tags = ['Top21Features'] #opts.use_features
+    # tags.append('XGBoost')
+    # tags.append('AdvancedModel')
+    # exp.add_tags(tags)
 
     xgb_model = AdvancedModel(xgb.XGBClassifier())
         
@@ -54,14 +54,14 @@ def main(opts):
 
     # Evaluate model
     y_pred, accuracy = model.evaluate(X_val, y_val)
-    exp.log_metric('accuracy', accuracy)
+    #exp.log_metric('accuracy', accuracy)
 
     # Save model
     model_path = os.path.join(opts.exp_path, opts.exp_name, 'model.pkl')
     model.save(model_path)
-    exp.log_model('Model', model_path)
+    #exp.log_model('Model', model_path)
 
-    exp.end()
+    #exp.end()
     
 def parse_opts(known=False):
     parser = argparse.ArgumentParser()
