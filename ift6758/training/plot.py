@@ -60,6 +60,30 @@ def plot_goal_rate(models_prob: dict, y_true, save_to=None):
     
     plt.show()
     return fig
+
+def plot_goal_rate_rf(models_prob: dict, y_true, save_to=None):
+    percentile_list = np.arange(0, 101, 5)/100
+    
+    for model_name, y_pred_prob in models_prob.items():
+        df = pd.DataFrame({'y_pred_prob': y_pred_prob, 'is_goal': y_true})
+        df['percentile_bin'] = pd.qcut(df['y_pred_prob'], q=percentile_list, duplicates='drop')
+        goal_rate = df.groupby('percentile_bin').is_goal.mean()
+        actual_percentiles = [interval.right for interval in goal_rate.index.categories]
+
+        plt.plot(np.array(actual_percentiles) * 100, goal_rate * 100, '--' if model_name == 'random' else '-', label=model_name)
+
+    plt.xlabel("Shot probability model percentile")
+    plt.ylabel("Goal Rate (%)")
+    plt.ylim((0, 100))
+    plt.xlim((100, 0))
+    plt.xticks(np.arange(0, 101, 10))
+    plt.title("Goal Rate for each percentile")
+    plt.legend()
+    plt.grid(True)
+    if save_to is not None:
+        plt.savefig(os.path.join(save_to, 'goal_rate.png'))
+    
+    plt.show()
     
 def plot_cumulative_goal(models_prob: dict, y_true, save_to=None):
     for i, (model_name, y_pred_prob) in enumerate(models_prob.items()):
@@ -127,4 +151,18 @@ def plot_all(models_prob: dict, y_true, save_to_folder=None):
     plot_roc(models_prob, y_true, save_to_folder)
     plot_calibration_curve(models_prob, y_true, save_to_folder)
     plot_goal_rate(models_prob, y_true, save_to_folder)
+    plot_cumulative_goal(models_prob, y_true, save_to_folder)
+        
+    
+def plot_all_random_forest(models_prob: dict, y_true, save_to_folder=None):
+    if save_to_folder is not None and not os.path.exists(save_to_folder):
+        os.makedirs(save_to_folder)
+
+    # Generate random uniform distribution for reference
+    y_random_prob = np.random.uniform(0.0, 1.0, len(y_true))
+    models_prob['random'] = y_random_prob
+
+    plot_roc(models_prob, y_true, save_to_folder)
+    plot_calibration_curve(models_prob, y_true, save_to_folder)
+    plot_goal_rate_rf(models_prob, y_true, save_to_folder)
     plot_cumulative_goal(models_prob, y_true, save_to_folder)
