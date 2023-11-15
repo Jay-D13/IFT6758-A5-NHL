@@ -124,7 +124,6 @@ def plot_calibration_curve(models_prob: dict, y_true, save_to=None):
             y_pred_prob,
             name=model_name,
             ax=ax,
-            n_bins=40,
             ref_line=i==0
         )
 
