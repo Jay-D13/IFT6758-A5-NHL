@@ -29,38 +29,69 @@ class DataCleaner:
             return True
         return False
 
-    def _find_opposite_team_side(self, event : dict, periods_data : dict, home_name : str) -> str or None:
-        event_team_side = 'home' if event['team']['name'] == home_name else 'away'
-        # Cas special pour les shootouts (periodType = SHOOTOUT) car period = 5 mais max(period) = 4
-        period = periods_data[0] if event['about']['periodType'] == 'SHOOTOUT' else periods_data[event['about']['period']-1]
-        
-        home_rink_side = period['home'].get('rinkSide', None) if 'home' in period and 'rinkSide' in period['home'] else None
-        away_rink_side = period['away'].get('rinkSide', None) if 'away' in period and 'rinkSide' in period['away'] else None
-        
-        # Check if rinkSide information is available
-        if all([home_rink_side, away_rink_side]):
-            return away_rink_side if event_team_side == 'home' else home_rink_side
+    def _find_opposite_team_side(self, event : dict, home_team_id : int) -> str or None:
+        home_team_side = event.get('homeTeamDefendingSide', None)
+        event_team_id = event['details']['eventOwnerTeamId']
+        zone_code = event['details'].get('zoneCode', None)
+
+        x = event['details'].get('xCoord', 0)
+        y = event['details'].get('yCoord', 0)
+
+        if home_team_side is None:
+            if zone_code == 'O':
+                if x < 0:
+                    return 'left'
+                elif x > 0:
+                    return 'right'
+            elif zone_code == 'D':
+                if x < 0:
+                    return 'right'
+                elif x > 0:
+                    return 'left'
+        else:
+            if event_team_id != home_team_id and zone_code == 'O':
+                return home_team_side
+            elif event_team_id == home_team_id and zone_code == 'O':
+                if home_team_side == 'left':
+                    return 'right'
+                else:
+                    return 'left'
 
         return None
     
-    def _extract_event_data(self, event : dict, game_id : str, opposite_team_side : str) -> dict or None:
+    def _get_is_emptyNet(self, event : dict, home_team_id : int) -> bool:
+        event_team_id = event['details']['eventOwnerTeamId']
+        situation_code = event['situationCode']
+
+        if event_team_id != home_team_id:
+            return situation_code[0] == '0'
+        else:
+            return situation_code[3] == '0'
+    
+    def _extract_event_data(self, event : dict, game_id : str, opposite_team_side : str, empty_net: bool, players: dict, team_name: str) -> dict or None:
         try:
-            shooter = next((p['player']['fullName'] for p in event['players'] if p['playerType'] in ['Shooter', 'Scorer']), None)
-            goalie = next((p['player']['fullName'] for p in event['players'] if p['playerType'] == 'Goalie'), None)
+            shooter_id = event['details']['scoringPlayerId'] if event['typeDescKey'] == 'goal' else event['details']['shootingPlayerId']
+            goalie_id = event['details']['goalieInNetId'] if not empty_net else None
             
+            shooter = next(f'{p["firstName"]["default"]} {p["lastName"]["default"]}' for p in players if p["playerId"] == shooter_id)
+            if not empty_net:
+                goalie = next(f'{p["firstName"]["default"]} {p["lastName"]["default"]}' for p in players if p["playerId"] == goalie_id)
+            else:
+                goalie = None
+
             return {
                 'game_id': game_id,
-                'period': event['about']['period'],
-                'period_time': self._convert_time_to_seconds(event['about']['periodTime']),
-                'type': event['result']['eventTypeId'],
-                'team': event['team']['name'],
-                'x': event['coordinates'].get('x', None),
-                'y': event['coordinates'].get('y', None),
+                'period': event['period'],
+                'period_time': self._convert_time_to_seconds(event['timeInPeriod']),
+                'type': event['typeDescKey'],
+                'team': team_name,
+                'x': event['details'].get('xCoord', None),
+                'y': event['details'].get('yCoord', None),
                 'shooter': shooter,
                 'goalie': goalie,
-                'shot_type': event['result'].get('secondaryType', None),
-                'empty_net': event['result'].get('emptyNet', False),
-                'strength': event['result'].get('strength', {}).get('name', None),
+                'shot_type': event['details'].get('shotType', None),
+                'empty_net': empty_net,
+                'strength': None,
                 'opposite_team_side': opposite_team_side,
             }
         except KeyError as e:
@@ -199,7 +230,6 @@ class DataCleaner:
 
         return power_play_info
             
-
     def extract_events(self, game_data: dict, game_id :str, includeShootouts : bool, keepPreviousEventInfo :bool, includePowerPlay : bool) -> list[dict]:
         """
             Filters out events that are not shots or goals then extracts the relevant 
@@ -209,39 +239,48 @@ class DataCleaner:
                 game_path (dict): The game data.
                 game_id (str): The game ID.
         """
-        plays = game_data['liveData']['plays']['allPlays']
-        game_periods_info = game_data['liveData']['linescore']['periods']
-        home_name = game_data['gameData']['teams']['home']['name']
+        plays = game_data['plays']
+        home_team_id = game_data['homeTeam']['id']
+        home_team_name = game_data['homeTeam']['abbrev']
+        away_team_name = game_data['awayTeam']['abbrev']
         previous_event = None
         
-        penalties = self.extract_penalty_info(game_data)
+        #penalties = self.extract_penalty_info(game_data)
         
         events = []
         for event in plays:
                  
             # Ignore shootouts
-            if not includeShootouts and event['about']['periodType'] == 'SHOOTOUT':
+            if not includeShootouts and event['periodDescriptor']['periodType'] == 'SO':
                 continue
                 
             # Ignore events that are not shots or goals
-            if event['result']['eventTypeId'] in WANTED_EVENTS:
+            if event['typeDescKey'] in WANTED_EVENTS:
                      
                 # Ignore events that do not have team side information (bad data) (it also coincidentally avoids overtime periods that don't end when going to shootouts)
-                opposite_team_side = self._find_opposite_team_side(event, game_periods_info, home_name)
+                opposite_team_side = self._find_opposite_team_side(event, home_team_id)
                 if opposite_team_side is None: # It's always the whole game that is missing this information
                     # print(f"Failed to extract event data for game {game_id} due to missing rink side information")
                     return None
+                
+                # Extract empty net information
+                empty_net = self._get_is_emptyNet(event, home_team_id)
+                if empty_net is None:
+                    empty_net = False
+
+                # Extract team name
+                team_name = home_team_name if event['details']['eventOwnerTeamId'] == home_team_id else away_team_name
 
                 # Extract event information
-                event_data = self._extract_event_data(event, game_id, opposite_team_side)
+                event_data = self._extract_event_data(event, game_id, opposite_team_side, empty_net, game_data['rosterSpots'], team_name)
                 if event_data is None:
                     continue
                 
                 # Extract power play information
-                if includePowerPlay:
-                    power_play_info = self.extract_power_play_info(penalties, event, home_name)
-                    # if power_play_info is not None:
-                    event_data.update(power_play_info)
+                # if includePowerPlay:
+                #     power_play_info = self.extract_power_play_info(penalties, event, home_name)
+                #     # if power_play_info is not None:
+                #     event_data.update(power_play_info)
                             
                 # Add previous event information
                 if keepPreviousEventInfo and previous_event is not None:
@@ -269,15 +308,15 @@ class DataCleaner:
         for game_type in self.data_raw.data[season]:            
             for game_data in self.data_raw.data[season][game_type]:                
                 # Extract events from game and convert it to a DataFrame
-                game_id = game_data['gamePk']
+                game_id = game_data['id']
                 events = self.extract_events(game_data, game_id, includeShootouts, keepPreviousEventInfo, includePowerPlay)
                 if events:
-                    season_events.extend(self.extract_events(game_data, game_id, includeShootouts, keepPreviousEventInfo, includePowerPlay))
+                    season_events.extend(events)
                 
         df = pd.DataFrame(season_events)
-        
+
         # Remove events with missing data
-        df = self.remove_bad_data(df)
+        df = self.remove_bad_data(df, keepPreviousEventInfo)
         
         # Save to a pickle file
         self.save_cleaned_data(df, season)
@@ -308,7 +347,7 @@ class DataCleaner:
         file = os.path.join(cleaned_path, f"{season}.pkl")
         df.to_pickle(file)
         
-    def remove_bad_data(self, df : pd.DataFrame):
+    def remove_bad_data(self, df : pd.DataFrame, keepPreviousEvents: bool = False):
         """
             Removes events with missing data from a DataFrame.
             We keep events with missing goalie since he can be out of the net.
@@ -326,7 +365,8 @@ class DataCleaner:
         df = df[df['shot_type'].notna()]
         
         # There's one previous event that's missing data
-        df = df[df['prev_type'].notna()]
+        if keepPreviousEvents:
+            df = df[df['prev_type'].notna()]
         
         return df
         
