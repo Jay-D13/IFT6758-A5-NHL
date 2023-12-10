@@ -1,5 +1,5 @@
 #!/bin/bash
-IMAGE_NAME="serving:latest"
+IMAGE_NAME="ift6758/serving:latest"
 
 COMET_API_KEY=${COMET_API_KEY}
 FLASK_LOG=${FLASK_LOG:-"flask.log"}
