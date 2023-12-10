@@ -12,3 +12,8 @@ ipykernel
 jupyterlab>=3.0.0
 setuptools
 json
+flask
+gunicorn
+scikit-learn
+comet_ml
+streamlit
