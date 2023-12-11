@@ -8,7 +8,7 @@
 
 # https://docs.docker.com/engine/reference/builder/#from
 # You shouldn't need to change this
-FROM python:3.9
+FROM python:3.11.7-slim
 
 # https://docs.docker.com/engine/reference/builder/#workdir
 # Create and cd into /code as your working directory
@@ -42,10 +42,10 @@ WORKDIR /code
 #
 #       CMD <SHELL COMMAND>
 
-COPY requirements.txt .
+
 COPY ift6758/ ./ift6758
 
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r ./ift6758/requirements.txt
 RUN pip install -e ./ift6758
 
 COPY serving/ ./serving

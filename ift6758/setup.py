@@ -5,7 +5,7 @@ setup(
     packages=find_packages(),
     # package_dir={'': 'src'},
     version='0.1.0',
-    description='Sample project repo for IFT6758-2021',
-    author='[FILL IN TEAM MEMBERS]',
+    description='NHL shot success analysis IFT6758-2023',
+    author='Guillaume Charron, Jeremy Kaufman, Jaydan Aladro',
     license='',
 )

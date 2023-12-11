@@ -11,8 +11,8 @@ ipywidgets
 ipykernel
 jupyterlab>=3.0.0
 setuptools
-json
-flask
+Flask==2.2.2
+Werkzeug==2.2.2
 gunicorn
 scikit-learn
 comet_ml

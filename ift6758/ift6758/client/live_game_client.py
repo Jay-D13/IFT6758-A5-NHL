@@ -14,7 +14,7 @@ class LiveGameClient:
         
         if rappelle.status_code ==200:
             donnee_live_match = rappelle.json()
-            events = donne_live_match.get("data": {}).get("gameData": {}).get("game", {}).get("plays", [])
+            events = donnee_live_match.get("data", {}).get("gameData", {}).get("game", {}).get("plays", [])
             new_events = [event for event in events if event['eventID'] not in self.event_tracker]
             self.event_tracker.update(event['eventID'] for event in new_events)
         
