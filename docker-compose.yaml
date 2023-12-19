@@ -1,32 +1,31 @@
-# docker-compose.yml
-version: '3'
+# docker-compose.yaml
+version: '4'
 
 services:
   serving:
     build:
       context: ./
       dockerfile: Dockerfile.serving
+      args:
+        SERVING_PORT: 5000
+        SERVING_IP: 0.0.0.0
     image: ift6758/serving:latest
     ports:
       - "5000:5000"
     environment:
-      COMET_API_KEY: ${COMET_API_KEY}
-      FLASK_LOG: flask.log
-    command: gunicorn --bind 0.0.0.0:5000 serving.app:app
+      - COMET_API_KEY=${COMET_API_KEY}
+      - FLASK_LOG=flask.log
 
-
-###### Uncomment below when you're ready to add the final notebook container to your docker compose
-##  streamlit:
-##    build:
-##      context: ./
-##      dockerfile: ./Dockerfile.streamlit
-##      args:
-##        ARG: <ARG>
-##    image: ift6758/streamlit:<TAG>
-##    ports:
-##      - <STREAMLIT_PORT>:<STREAMLIT_PORT>
-##    environment:
-##      OTHER_DOCKER_ENV_VAR = ${OTHER_LOCAL_ENV_VAR}
+  streamlit:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile.streamlit
+    image: ift6758/streamlit:latest
+    ports:
+      - "5001:5001"
+    environment:
+      - STREAMLIT_IP=0.0.0.0
+      - STREAMLIT_PORT=5001
       
 
      
