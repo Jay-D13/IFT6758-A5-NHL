@@ -34,7 +34,7 @@ class ServingClient:
             return df
             
         else:
-            logger.error(f"Prediction request failed with status code {response.status_code}")
+            logger.error(f"Prediction request failed with status code {rappelle.status_code}")
             rappelle.raise_for_status()
             
     def logs(self) -> dict:
@@ -45,7 +45,7 @@ class ServingClient:
             logs = rappelle.json()
             return logs
         else:
-            logger.error(f"Logs request failed with status code {response.status_code}")
+            logger.error(f"Logs request failed with status code {rappelle.status_code}")
             rappelle.raise_for_status()
         
     def download_registry_model(self, workspace: str, model: str, version: str) -> dict:
@@ -70,7 +70,7 @@ class ServingClient:
             modele_donnees = rappelle.json()
             return modele_donnees
         else:
-            logger.error(f"Download registry model request failed with status code {response.status_code}")
+            logger.error(f"Download registry model request failed with status code {rappelle.status_code}")
             rappelle.raise_for_status()            
 
 
