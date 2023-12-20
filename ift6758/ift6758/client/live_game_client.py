@@ -35,7 +35,7 @@ class LiveGameClient:
             rappelle.raise_for_status()
 
     def process_live_events(self, live_events):
-        # Traitez les nouveaux événements selon vos besoins
+        # Traitez les nouveaux événements
         for event in live_events:
             # Produisez les caractéristiques requises par le modèle
             features = self.extract_features(event)
@@ -50,8 +50,7 @@ class LiveGameClient:
             self.display_game_info()
 
     def extract_features(self, live_event):
-        # Implémentez la logique pour extraire les caractéristiques des événements
-        # Utilisez le même nom pour les deux types d'événements
+        # Extraire les caractéristiques des événements
         if live_event['result']['eventTypeId'] in ['GOAL', 'SHOT']:
             features = {
                 'event_type': 'SHOT_GOAL',  # Utilisez un nom commun pour les deux types
@@ -68,7 +67,7 @@ class LiveGameClient:
 
     def make_prediction(self, features):
         # Faites une demande au service Flask pour obtenir la prédiction
-        url = "http://localhost:5000/predict"
+        url = "http://127.0.0.1:<PORT>/predict"
         data = {'features': [features]}  # Assurez-vous que les données sont correctement formatées
         response = requests.post(url, json=data)
 
