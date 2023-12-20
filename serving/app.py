@@ -86,7 +86,7 @@ def download_registry_model():
     app.logger.info(json_request)
 
 
-    new_model = comet_api.get_model(model_name=json_request['model'], logger=app.logger)
+    new_model = comet_api.get_model(model_name=json_request['version'], logger=app.logger)
 
     if new_model is not None:
         model = new_model

@@ -1,112 +1,104 @@
 import requests
+import os
+import json
+import pandas as pd
+from features.ingenierie import features_live_game
+from data.cleaning import DataCleaner
 
 class LiveGameClient:
-    
     def __init__(self):
         self.base_url = "https://api-web.nhle.com/v1/gamecenter"
-        self.event_tracker = set()
-        self.last_event_id = None  # Stocke l'ID du dernier événement traité
-        self.home_team = None
-        self.away_team = None
-        self.current_period = None
-        self.time_remaining = None
-        self.home_score = 0
-        self.away_score = 0
-        self.total_xg_home = 0
-        self.total_xg_away = 0
+        self.cleaner = DataCleaner()
+        self.current_game_id = None
+        self.game_plays_cache = {}
+        self.games_cached = {}
 
-    def get_live_game_events(self, game_id):
+    def update_new_game_plays(self, game_id):
         url = f"{self.base_url}/{game_id}/play-by-play"
-        params = {'lastEventId': self.last_event_id} if self.last_event_id else {}
+        most_recent_play_num = self.game_plays_cache[game_id]['play_nums'][-1] if self.game_plays_cache[game_id]['play_nums'] else 0
 
-        rappelle = requests.get(url, params=params)
+        response = requests.get(url)
         
-        if rappelle.status_code == 200:
-            donnee_live_match = rappelle.json()
-            events = donnee_live_match.get("data", {}).get("gameData", {}).get("game", {}).get("plays", [])
-            new_events = [event for event in events if event['eventID'] not in self.event_tracker]
-            self.event_tracker.update(event['eventID'] for event in new_events)
-        
-        if new_events:
-            self.last_event_id = new_events[-1]['eventID']
-            return new_events
-        else:
-            # Gérez les erreurs de requête ici
-            rappelle.raise_for_status()
-
-    def process_live_events(self, live_events):
-        # Traitez les nouveaux événements
-        for event in live_events:
-            # Produisez les caractéristiques requises par le modèle
-            features = self.extract_features(event)
-
-            # Mise à jour des statistiques du match
-            self.update_game_stats(features)
-
-            # Faites une demande au service de prédiction
-            prediction = self.make_prediction(features)
-
-            # Affichez les informations requises
-            self.display_game_info()
-
-    def extract_features(self, live_event):
-        # Extraire les caractéristiques des événements
-        if live_event['result']['eventTypeId'] in ['GOAL', 'SHOT']:
-            features = {
-                'event_type': 'SHOT_GOAL',  # Utilisez un nom commun pour les deux types
-                'team': live_event['team']['triCode'],
-                'period': live_event['about']['period'],
-                'time_remaining': live_event['about']['periodTimeRemaining'],
-                'shooter': live_event['players'][0]['player']['fullName'],
-                'result': live_event['result']['eventTypeId'],
-            }
-            return features
-        else:
-            # Pour d'autres types d'événements, retournez un dictionnaire vide
-            return {}
-
-    def make_prediction(self, features):
-        # Faites une demande au service Flask pour obtenir la prédiction
-        url = "http://127.0.0.1:<PORT>/predict"
-        data = {'features': [features]}  # Assurez-vous que les données sont correctement formatées
-        response = requests.post(url, json=data)
-
         if response.status_code == 200:
-            result = response.json()
-            prediction = result['prediction'][0]
-            return prediction
+            data = response.json()
+            self.games_cached[game_id] = data
+            game_data = {
+                'plays': data['plays'][most_recent_play_num:],
+                'homeTeam': data['homeTeam'],
+                'awayTeam': data['awayTeam'],
+            }
+
+        for i, play in enumerate(game_data['plays']):
+            if play['typeDescKey'] not in ['goal', 'shot-on-goal', 'missed_shot']:
+                continue
+            self.game_plays_cache[game_id]['play_nums'].append(most_recent_play_num + i + 1)
+            
+        cleaned_new_plays = self.cleaner.extract_events(game_data, game_id, includeShootouts=False, keepPreviousEventInfo=False)
+            
+        self.game_plays_cache[game_id]['cleaned_plays'] += cleaned_new_plays
+
+    def get_prediction(self, features):
+        ip = os.environ.get('SERVING_IP')
+        port = os.environ.get('SERVING_PORT')
+        url = f"http://{ip}:{port}/predict"
+        response = requests.post(
+            url,
+            json=json.loads(features.to_json())
+        )
+        
+        if response.status_code == 200:
+            return response.json()['predictions'][0][1]
         else:
-            # Gérez les erreurs de requête ici
-            response.raise_for_status()
+            return None
 
-    def update_game_stats(self, features):
-        # Mise à jour des statistiques du match
-        if features.get('event_type') == 'SHOT_GOAL':
-            team = features.get('team')
-            result = features.get('result')
+    def ping_game(self, game_id):
+        if self.current_game_id != game_id:
+            self.current_game_id = game_id
+            if game_id not in self.game_plays_cache:
+                self.game_plays_cache[game_id] = {
+                    "cleaned_plays": [], 
+                    "features": pd.DataFrame(),
+                    "play_nums": [],
+                    "predictions": []
+                    }
+                
+        self.update_new_game_plays(game_id)
+        newest_play_num = self.game_plays_cache[game_id]['play_nums'][-1]
+        game_plays = pd.DataFrame(self.game_plays_cache[game_id]['cleaned_plays'][newest_play_num:])
+        
+        new_plays_features = features_live_game(game_plays)
+        self.game_plays_cache[game_id]['features'] = pd.concat([self.game_plays_cache[game_id]['features'], new_plays_features])
 
-            if result == 'GOAL':
-                if team == self.home_team:
-                    self.home_score += 1
-                elif team == self.away_team:
-                    self.away_score += 1
+        prediction = self.get_prediction(new_plays_features)
+        self.game_plays_cache[game_id]['predictions'].append(prediction)
+        
+        return self.game_plays_cache[game_id], self.update_game_stats(game_id)
 
-            # Mise à jour des buts attendus (xG)
-            xg = self.make_prediction(features)
-            if team == self.home_team:
-                self.total_xg_home += xg
-            elif team == self.away_team:
-                self.total_xg_away += xg
-
-            # Mise à jour de la période et du temps restant
-            self.current_period = features.get('period')
-            self.time_remaining = features.get('time_remaining')
-
-    def display_game_info(self):
-        # Affichez les informations requises
-        print("Équipes:", self.home_team, "vs", self.away_team)
-        print("Période:", self.current_period)
-        print("Temps restant dans la période:", self.time_remaining)
-        print("Score actuel:", f"{self.home_team} {self.home_score} - {self.away_team} {self.away_score}")
-        print("Somme des buts attendus (xG) -", f"{self.home_team}: {self.total_xg_home}, {self.away_team}: {self.total_xg_away}")
-        print("Différence entre le score actuel et la somme des buts attendus:", f"{self.home_team}: {self.home_score - self.total_xg_home}, {self.away_team}: {self.away_score - self.total_xg_away}")
+    def get_game_stats(self, game_id):
+        
+        team_names = (self.games_cached[game_id]['homeTeam']['name']['default'], self.games_cached[game_id]['awayTeam']['name']['default'])
+        team_logos = (self.games_cached[game_id]['homeTeam']['logo'], self.games_cached[game_id]['awayTeam']['logo'])
+        current_period = self.game_plays_cache[game_id]['cleaned_plays'][-1]['period']
+        time_remaining = self.games_cached[game_id]['clock']['timeRemaining']
+        score = (self.games_cached[game_id]['homeTeam']['score'], self.games_cached[game_id]['awayTeam']['score'])
+        
+        xg_home = []
+        xg_away = []
+        
+        for i, play in enumerate(self.game_plays_cache[game_id]['cleaned_plays']):
+            if play['team'] == team_names[0]:
+                xg_home.append(self.game_plays_cache[game_id]['predictions'][i])
+            else:
+                xg_away.append(self.game_plays_cache[game_id]['predictions'][i])
+                
+        xg_home = sum(xg_home)
+        xg_away = sum(xg_away)
+        
+        return {
+            "team_names": team_names,
+            "team_logos": team_logos,
+            "current_period": current_period,
+            "time_remaining": time_remaining,
+            "score": score,
+            "xG": [xg_home, xg_away]
+        }

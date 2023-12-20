@@ -218,3 +218,24 @@ class FeatureEng:
     
     def encodeCategories(self, df: pd.DataFrame, categorical_features: list):
         return pd.get_dummies(df, columns=categorical_features, drop_first=True)
+    
+
+def features_live_game(self, game_events : pd.DataFrame): # new api (annoying) so we limit ourselves to the features we need for simple models
+    # Distance du but
+    # Angle par rapport au but
+    # Est un but (0 ou 1)
+    # Filet ou vide (0 ou 1; vous pouvez assumer que les NaNs sont  0)
+    #   Pour cela, vous pouvez utiliser le `situationCode` qui fonctionne comme suit:
+    #       Premier chiffre: 1 pour gardien présent sur la glace de l'équipe away
+    #       Deuxième chiffre: Nombre de patineurs sur la glace pour l’équipe away
+    #       Troisième chiffre: Nombre de patineurs sur la glace pour l’équipe locale
+    #       Quatrième chiffre: 1 pour gardien présent sur la glace de l’équipe locale
+    #   Combinez ceci avec eventOwnerTeamId pour voir s'il s'agissait d'un but filet vide.
+    
+    game_events['distance_goal'] = game_events.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
+    game_events['angle_shot'] = np.where(game_events['distance_goal'] == 0, 0, round(np.degrees(np.arcsin(game_events['y'] / game_events['distance_goal'])),2))
+    
+    game_events['empty_net'] = game_events['empty_net'].fillna(0)
+    game_events['empty_net'] = game_events['empty_net'].astype(int)
+    
+    return game_events[['distance_goal', 'angle_shot', 'empty_net']]

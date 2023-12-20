@@ -11,45 +11,71 @@ st.title("Hockey Game Goal Prediction App")
 
 with st.sidebar:
     st.subheader("Model Configuration")
-    workspace = st.text_input('Workspace') # maybe we can make a dropdown with the available workspaces, model names, and versions
-    model_name = st.text_input('Model')
-    version = st.text_input('Version')
+
+    workspace_options = ['ft6758-a5-nhl/milestone2']
+    model_name_options = ['Regression']#, 'XGBoost', 'RandomForest']
+
+    model_versions = {
+        'Regression': ['logisticregression_angle', 'logisticregression_distance', 'logisticregression_distance-angle'],
+        # 'XGBoost': ['v1.5'],
+        # 'RandomForest': ['v3.0']
+    }
+
+    workspace = st.selectbox('Workspace', workspace_options)
+    model_name = st.selectbox('Model', model_name_options)
+
+    version_options = model_versions.get(model_name, [])
+    version = st.selectbox('Version', version_options)
+
     if st.button('Download Model'):
         model = ServingClient.download_registry_model(workspace, model_name, version)
-
+        st.write('Model downloaded successfully!')
 
 with st.container():
     game_id = st.text_input('Game ID', help="Enter the ID of the game you want to analyze.")
-    if st.button('Query Game'):
-        X, idx, _ = LiveGameClient.ping_game(game_id)
-        response = requests.post(
-            "http://127.0.0.1:5000/predict",
-            json=json.loads(X.to_json())
-        )
-        response = response.json()
+    if st.button('Ping Game'):
+        infos, stats = LiveGameClient.ping_game(game_id)
+    if game_id:
+        if st.button('Refresh'):
+            infos, stats = LiveGameClient.ping_game(game_id)
 
-if 'response' in locals():
+if stats:
+    
+    home = stats['team_names'][0]
+    away = stats['team_names'][1]
+    home_score = stats['score'][0]
+    away_score = stats['score'][1]
+    xg_home = stats['xG'][0]
+    xg_away = stats['xG'][1]
+    home_logo = stats['team_logos'][0]
+    away_logo = stats['team_logos'][1]
+    
+    diff_home = home_score - xg_home
+    diff_away = away_score - xg_away
+    
+    st.subheader(f"Game {game_id}: {home} vs {away}")
+    st.write(f"Period {stats['current_period']} - {stats['time_remaining']} left")
     with st.container():
-        col1, col2, col3 = st.columns(3)
-
+        col1, col2, col3, col4 = st.columns([1, 2, 2, 1])
+        
         with col1:
-            st.metric("Period", response["period"])
-            st.metric("Time Remaining", response["time_remaining"])
-
+            home_logo_response = requests.get(home_logo)
+            st.image(home_logo_response.text, width=100, output_format='SVG')
+        
         with col2:
-            st.metric("Home Team", response["team_names"][0])
-            st.metric("Away Team", response["team_names"][1])
-
+            st.metric(label="Canucks xG (actual)", value=f"{xg_home} ({home_score})", delta=diff_home)
+            
         with col3:
-            st.metric("Current Score", response["current_score"])
-
-            xg_sum = response["xG"].sum()
-            score_diff = xg_sum - response["current_score"]
-            st.metric("xG Score Difference", f"{score_diff:.2f}")
+            st.metric(label="Avalanche xG (actual)", value=f"{xg_away} ({away_score})", delta=diff_away)
+            
+        with col4:
+            away_logo_response = requests.get(away_logo)
+            st.image(away_logo_response.text, width=100, output_format='SVG')
 
     with st.container():
         st.subheader("Data used for predictions (and predictions):")
-        st.dataframe(response)
+        df = pd.concat([infos['features'], pd.DataFrame(infos['predictions'])], axis=1)
+        st.dataframe(df)
 
 if __name__ == '__main__':
     st.run()

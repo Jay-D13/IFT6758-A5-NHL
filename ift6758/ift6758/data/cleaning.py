@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 from datetime import datetime
-from ift6758.data import WANTED_EVENTS, PREVIOUS_EVENTS
+from ift6758.data import WANTED_EVENTS
 from ift6758.data.acquisition import NHLGameData
 
 class DataCleaner:
