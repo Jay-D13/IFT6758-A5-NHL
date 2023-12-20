@@ -1,21 +1,22 @@
 import requests
 import pandas as pd
 import logging
+import os
 
 
 logger = logging.getLogger(__name__)
 
 
 class ServingClient:
-    def __init__(self, ip: str = "127.0.0.1", port: int = 5000, features=None):
+    def __init__(self):
+        
+        ip = os.environ.get('SERVING_IP')
+        port = os.environ.get('SERVING_PORT')
+        
         self.base_url = f"http://{ip}:{port}"
+        
+        
         logger.info(f"Initializing client; base URL: {self.base_url}")
-
-        if features is None:
-            features = ["distance"]
-        self.features = features
-
-        # any other potential initialization
 
     def predict(self, X: pd.DataFrame) -> pd.DataFrame:
         """

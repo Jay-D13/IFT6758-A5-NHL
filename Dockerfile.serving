@@ -5,15 +5,15 @@ WORKDIR /code
 ARG SERVING_IP
 ARG SERVING_PORT
 
-COPY ift6758/ /code/ift6758/
+COPY package/ ./package/
 
 # This was an error encountered with my Docker image version for Apple Silicon chips
 RUN apt-get update && \
     apt-get install -y gcc python3-dev
 
-    
-RUN pip install -r ./ift6758/requirements.txt
-RUN pip install -e ./ift6758
+
+RUN pip install -r ./package/requirements.txt
+RUN pip install -e ./package
 
 COPY serving/ ./serving
 

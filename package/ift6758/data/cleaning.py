@@ -6,8 +6,8 @@ from ift6758.data.acquisition import NHLGameData
 
 class DataCleaner:
     def __init__(self, data_raw: NHLGameData, data_path_clean):
-        self.data_raw = data_raw
-        self.data_path_clean = data_path_clean # should be ..../json_clean/
+        self.data_raw = data_raw # TODO : move this to clean_season where it is used to preserve encapsulation
+        self.data_path_clean = data_path_clean # should be ..../json_clean/ TODO make os env variable
         self.cache = {}
         
         os.makedirs(data_path_clean, exist_ok=True)

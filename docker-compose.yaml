@@ -7,14 +7,16 @@ services:
       context: ./
       dockerfile: Dockerfile.serving
       args:
-        SERVING_PORT: 5000
+        SERVING_PORT: 5002
         SERVING_IP: 0.0.0.0
     image: ift6758/serving:latest
     ports:
-      - "5000:5000"
+      - "5002:5002"
     environment:
       - COMET_API_KEY=${COMET_API_KEY}
       - FLASK_LOG=flask.log
+      - SERVING_IP=0.0.0.0
+      - SERVING_PORT=5002
 
   streamlit:
     build:

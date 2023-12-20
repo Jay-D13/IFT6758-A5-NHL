@@ -4,10 +4,13 @@ import numpy as np
 import requests
 import json
 import pandas as pd
-from ift6758.ift6758.client.live_game_client import LiveGameClient
-from ift6758.ift6758.client.serving_client import ServingClient
+from ift6758.client.live_game_client import LiveGameClient
+from ift6758.client.serving_client import ServingClient
 
 st.title("Hockey Game Goal Prediction App")
+
+serving_client = ServingClient()
+live_game_client = LiveGameClient()
 
 with st.sidebar:
     st.subheader("Model Configuration")
@@ -20,6 +23,12 @@ with st.sidebar:
         # 'XGBoost': ['v1.5'],
         # 'RandomForest': ['v3.0']
     }
+    
+    model_features = {
+        'logisticregression_angle': ['angle'],
+        'logisticregression_distance': ['distance'],
+        'logisticregression_distance-angle': ['distance', 'angle'],
+    }
 
     workspace = st.selectbox('Workspace', workspace_options)
     model_name = st.selectbox('Model', model_name_options)
@@ -28,16 +37,27 @@ with st.sidebar:
     version = st.selectbox('Version', version_options)
 
     if st.button('Download Model'):
-        model = ServingClient.download_registry_model(workspace, model_name, version)
+        model = serving_client.download_registry_model(workspace, model_name, version)
         st.write('Model downloaded successfully!')
+
+infos, stats = None, None
 
 with st.container():
     game_id = st.text_input('Game ID', help="Enter the ID of the game you want to analyze.")
+        
     if st.button('Ping Game'):
-        infos, stats = LiveGameClient.ping_game(game_id)
+        try:
+            game_id = int(game_id)
+        except:
+            game_id = None
+        
+        if not game_id:
+            st.warning('Please enter a valid game ID.')
+        else: 
+            infos, stats = live_game_client.ping_game(game_id)
     if game_id:
         if st.button('Refresh'):
-            infos, stats = LiveGameClient.ping_game(game_id)
+            infos, stats = live_game_client.ping_game(game_id)
 
 if stats:
     
@@ -76,6 +96,3 @@ if stats:
         st.subheader("Data used for predictions (and predictions):")
         df = pd.concat([infos['features'], pd.DataFrame(infos['predictions'])], axis=1)
         st.dataframe(df)
-
-if __name__ == '__main__':
-    st.run()

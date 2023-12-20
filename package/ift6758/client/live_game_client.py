@@ -2,13 +2,13 @@ import requests
 import os
 import json
 import pandas as pd
-from features.ingenierie import features_live_game
-from data.cleaning import DataCleaner
+from ift6758.features.ingenierie import features_live_game
+from ift6758.data.cleaning import DataCleaner
 
 class LiveGameClient:
     def __init__(self):
         self.base_url = "https://api-web.nhle.com/v1/gamecenter"
-        self.cleaner = DataCleaner()
+        self.cleaner = DataCleaner(data_raw=None, data_path_clean="./") # don't need args for live game
         self.current_game_id = None
         self.game_plays_cache = {}
         self.games_cached = {}
@@ -26,6 +26,7 @@ class LiveGameClient:
                 'plays': data['plays'][most_recent_play_num:],
                 'homeTeam': data['homeTeam'],
                 'awayTeam': data['awayTeam'],
+                'rosterSpots': data['rosterSpots'],
             }
 
         for i, play in enumerate(game_data['plays']):
@@ -33,8 +34,11 @@ class LiveGameClient:
                 continue
             self.game_plays_cache[game_id]['play_nums'].append(most_recent_play_num + i + 1)
             
-        cleaned_new_plays = self.cleaner.extract_events(game_data, game_id, includeShootouts=False, keepPreviousEventInfo=False)
-            
+        print(f"New play nums: {self.game_plays_cache[game_id]['play_nums']}")
+        print(f"New plays: {game_data['plays']}")
+        cleaned_new_plays = self.cleaner.extract_events(game_data, game_id, includeShootouts=False, keepPreviousEventInfo=False, includePowerPlay=False)
+        print(f"New plays: {cleaned_new_plays}")
+        
         self.game_plays_cache[game_id]['cleaned_plays'] += cleaned_new_plays
 
     def get_prediction(self, features):
