@@ -33,5 +33,4 @@ services:
       - STREAMLIT_IP=0.0.0.0
       - STREAMLIT_PORT=5001
       - PYTHONUNBUFFERED=1
-      - SERVING_IP=0.0.0.0
       - SERVING_PORT=5002
