@@ -1,13 +1,3 @@
-"""
-If you are in the same directory as this file (app.py), you can run run the app using gunicorn:
-    
-    $ gunicorn --bind 0.0.0.0:<PORT> app:app
-
-gunicorn can be installed via:
-
-    $ pip install gunicorn
-
-"""
 import os
 import logging
 from flask import Flask, jsonify, request, Response
@@ -62,7 +52,7 @@ def logs():
     return jsonify(response)  # response must be json serializable!
 
 
-@app.route("/download_registry_model", methods=["POST"])
+@app.route("/download_registry_model", methods=["GET", "POST"])
 def download_registry_model():
     """
     Handles POST requests made to http://IP_ADDRESS:PORT/download_registry_model
@@ -104,7 +94,7 @@ def download_registry_model():
     return Response(json.dumps(response), status_code, mimetype='application/json') # response must be json serializable!
 
 
-@app.route("/predict", methods=["POST"])
+@app.route("/predict", methods=["GET","POST"])
 def predict():
     """
     Handles POST requests made to http://IP_ADDRESS:PORT/predict

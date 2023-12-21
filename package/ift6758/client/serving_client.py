@@ -10,11 +10,11 @@ logger = logging.getLogger(__name__)
 class ServingClient:
     def __init__(self):
         
-        ip = os.environ.get('SERVING_IP')
-        port = os.environ.get('SERVING_PORT')
-        
-        self.base_url = f"http://{ip}:{port}"
-        
+        # ip = os.environ.get('SERVING_IP', 'ift6758-a5-nhl-serving-1')
+        # port = os.environ.get('SERVING_PORT', '5002')
+        self.base_url = f"http://ift6758-a5-nhl-serving-1:5002"
+
+        print(f"Initializing client; base URL: {self.base_url}")
         
         logger.info(f"Initializing client; base URL: {self.base_url}")
 
