@@ -2,7 +2,6 @@ import requests
 import os
 import json
 import pandas as pd
-import logging
 from ift6758.features.ingenierie import features_live_game
 from ift6758.data.cleaning import DataCleaner
 
@@ -42,20 +41,6 @@ class LiveGameClient:
         
         return most_recent_play_num
 
-    def get_prediction(self, features):
-        ip = os.environ.get('SERVING_IP')
-        port = os.environ.get('SERVING_PORT')
-        url = f"http://{ip}:{port}/predict"
-        response = requests.post(
-            url,
-            json=json.loads(features.to_json())
-        )
-        
-        if response.status_code == 200:
-            return response.json()['predictions'][0][1]
-        else:
-            return None
-
     def ping_game(self, game_id):
         if self.current_game_id != game_id:
             self.current_game_id = game_id
@@ -64,7 +49,7 @@ class LiveGameClient:
                     "cleaned_plays": [], 
                     "features": pd.DataFrame(),
                     "play_nums": [],
-                    "predictions": []
+                    # "predictions": []
                     }
                 
         newest_play_num = self.update_new_game_plays(game_id)
@@ -73,13 +58,10 @@ class LiveGameClient:
         
         new_plays_features = features_live_game(game_plays)
         self.game_plays_cache[game_id]['features'] = pd.concat([self.game_plays_cache[game_id]['features'], new_plays_features])
-
-        prediction = self.get_prediction(new_plays_features)
-        self.game_plays_cache[game_id]['predictions'].append(prediction)
         
-        return self.game_plays_cache[game_id], self.update_game_stats(game_id)
+        return self.game_plays_cache[game_id]
 
-    def get_game_stats(self, game_id):
+    def get_game_stats(self, game_id, predictions):
         
         team_names = (self.games_cached[game_id]['homeTeam']['name']['default'], self.games_cached[game_id]['awayTeam']['name']['default'])
         team_logos = (self.games_cached[game_id]['homeTeam']['logo'], self.games_cached[game_id]['awayTeam']['logo'])
@@ -92,9 +74,9 @@ class LiveGameClient:
         
         for i, play in enumerate(self.game_plays_cache[game_id]['cleaned_plays']):
             if play['team'] == team_names[0]:
-                xg_home.append(self.game_plays_cache[game_id]['predictions'][i])
+                xg_home.append(predictions[i])
             else:
-                xg_away.append(self.game_plays_cache[game_id]['predictions'][i])
+                xg_away.append(predictions[i])
                 
         xg_home = sum(xg_home)
         xg_away = sum(xg_away)

@@ -13,16 +13,19 @@ services:
     ports:
       - "5002:5002"
     environment:
-      - COMET_API_KEY=${COMET_API_KEY}
-      - FLASK_LOG=flask.log
       - SERVING_IP=0.0.0.0
       - SERVING_PORT=5002
+      - COMET_API_KEY=${COMET_API_KEY}
+      - FLASK_LOG=flask.log
       - PYTHONUNBUFFERED=1
 
   streamlit:
     build:
       context: ./
       dockerfile: ./Dockerfile.streamlit
+      args:
+        STREAMLIT_PORT: 5001
+        STREAMLIT_IP: 0.0.0.0
     image: ift6758/streamlit:latest
     ports:
       - "5001:5001"
@@ -30,6 +33,5 @@ services:
       - STREAMLIT_IP=0.0.0.0
       - STREAMLIT_PORT=5001
       - PYTHONUNBUFFERED=1
-      
-
-     
+      - SERVING_IP=0.0.0.0
+      - SERVING_PORT=5002

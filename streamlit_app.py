@@ -12,6 +12,25 @@ st.title("Hockey Game Goal Prediction App")
 serving_client = ServingClient()
 live_game_client = LiveGameClient()
 
+def get_predictions(model_version, game_info):
+    
+    model_features = {
+        'logisticregression_angle': ['angle_shot'],
+        'logisticregression_distance': ['distance_goal'],
+        'logisticregression_distance-angle': ['distance_goal', 'angle_shot'],
+    }
+    
+    # filter features to match model
+    X = game_info['features'][model_features[model_version]]
+    
+    # get predictions
+    y = serving_client.predict(X)
+    
+    # concat predictions to features
+    df = pd.concat([X, y], axis=1)
+    
+    return df
+
 with st.sidebar:
     st.subheader("Model Configuration")
 
@@ -23,12 +42,7 @@ with st.sidebar:
         # 'XGBoost': ['v1.5'],
         # 'RandomForest': ['v3.0']
     }
-    
-    model_features = {
-        'logisticregression_angle': ['angle'],
-        'logisticregression_distance': ['distance'],
-        'logisticregression_distance-angle': ['distance', 'angle'],
-    }
+
 
     workspace = st.selectbox('Workspace', workspace_options)
     model_name = st.selectbox('Model', model_name_options)
@@ -44,22 +58,32 @@ infos, stats = None, None
 
 with st.container():
     game_id = st.text_input('Game ID', help="Enter the ID of the game you want to analyze.")
-        
-    if st.button('Ping Game'):
-        try:
-            game_id = int(game_id)
-        except:
-            game_id = None
-        
-        if not game_id:
-            st.warning('Please enter a valid game ID.')
-        else: 
-            infos, stats = live_game_client.ping_game(game_id)
-    if game_id:
-        if st.button('Refresh'):
-            infos, stats = live_game_client.ping_game(game_id)
+    
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        if st.button('Ping Game'):
+            try:
+                game_id = int(game_id)
+            except:
+                game_id = None
+            
+            if not game_id:
+                st.warning('Please enter a valid game ID.')
+            else: 
+                infos = live_game_client.ping_game(game_id)
+                x_y = get_predictions(version, infos)
+                stats = live_game_client.get_game_stats(game_id, x_y)
+    
+    with col2:
+        if game_id:
+            if st.button('Refresh'):
+                infos, stats = live_game_client.ping_game(game_id)
+                x_y = get_predictions(version, infos)
+                stats = live_game_client.get_game_stats(game_id, x_y)
 
-if stats:
+
+if stats and x_y is not None:
     
     home = stats['team_names'][0]
     away = stats['team_names'][1]
