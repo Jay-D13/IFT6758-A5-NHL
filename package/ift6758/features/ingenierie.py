@@ -8,17 +8,6 @@ class FeatureEng:
         self.data_path = data_path
         self.cached_data = {}
         
-    def _get_dist_goal(self, side, x, y) -> float:
-        goal_x = {
-            'left': -90.0,
-            'right': 90.0
-        }
-        
-        if side not in goal_x:
-            return None
-        
-        return round(((x - goal_x[side]) ** 2 + y ** 2) ** 0.5,2)
-        
     def _fetch_data(self, startYear: int, endYear: int, keepPlayoffs=False) -> pd.DataFrame:
         
         if (startYear, endYear, keepPlayoffs) in self.cached_data:
@@ -54,7 +43,7 @@ class FeatureEng:
         #1 or 0 for goal or shot respectively
         trainValSets['is_goal'] = trainValSets['type'].str.contains('GOAL').astype(int)
         trainValSets.drop(columns=['type'], inplace=True)
-        trainValSets['distance_goal'] = trainValSets.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
+        trainValSets['distance_goal'] = trainValSets.apply(lambda row: get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
         trainValSets['angle_shot'] = np.where(trainValSets['distance_goal'] == 0, 
                                          0, 
                                          np.degrees(np.arcsin(trainValSets['y'] / trainValSets['distance_goal'])))
@@ -124,8 +113,8 @@ class FeatureEng:
         df.rename(columns={'period_time': 'game_seconds'}, inplace=True)
         
         # Distance
-        df['distance_goal'] = df.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
-        df['prev_distance_goal'] = df.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['prev_x'], row['prev_y']), axis=1)
+        df['distance_goal'] = df.apply(lambda row: get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
+        df['prev_distance_goal'] = df.apply(lambda row: get_dist_goal(row['opposite_team_side'], row['prev_x'], row['prev_y']), axis=1)
         
         # Angle
         df['angle_shot'] = np.where(df['distance_goal'] == 0, 0, round(np.degrees(np.arcsin(df['y'] / df['distance_goal'])),2))
@@ -220,22 +209,25 @@ class FeatureEng:
         return pd.get_dummies(df, columns=categorical_features, drop_first=True)
     
 
-def features_live_game(self, game_events : pd.DataFrame): # new api (annoying) so we limit ourselves to the features we need for simple models
-    # Distance du but
-    # Angle par rapport au but
-    # Est un but (0 ou 1)
-    # Filet ou vide (0 ou 1; vous pouvez assumer que les NaNs sont  0)
-    #   Pour cela, vous pouvez utiliser le `situationCode` qui fonctionne comme suit:
-    #       Premier chiffre: 1 pour gardien présent sur la glace de l'équipe away
-    #       Deuxième chiffre: Nombre de patineurs sur la glace pour l’équipe away
-    #       Troisième chiffre: Nombre de patineurs sur la glace pour l’équipe locale
-    #       Quatrième chiffre: 1 pour gardien présent sur la glace de l’équipe locale
-    #   Combinez ceci avec eventOwnerTeamId pour voir s'il s'agissait d'un but filet vide.
+def features_live_game(game_events : pd.DataFrame): # new api (annoying) so we limit ourselves to the features we need for simple models   
+     
+    df = game_events.copy()
+    print(df.columns)
+    df['distance_goal'] = df.apply(lambda row: get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
+    df['angle_shot'] = np.where(df['distance_goal'] == 0, 0, round(np.degrees(np.arcsin(df['y'] / df['distance_goal'])),2))
     
-    game_events['distance_goal'] = game_events.apply(lambda row: self._get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
-    game_events['angle_shot'] = np.where(game_events['distance_goal'] == 0, 0, round(np.degrees(np.arcsin(game_events['y'] / game_events['distance_goal'])),2))
+    df['empty_net'] = df['empty_net'].fillna(0)
+    df['empty_net'] = df['empty_net'].astype(int)
     
-    game_events['empty_net'] = game_events['empty_net'].fillna(0)
-    game_events['empty_net'] = game_events['empty_net'].astype(int)
+    return df[['distance_goal', 'angle_shot', 'empty_net']]
+
+def get_dist_goal(side, x, y) -> float:
+    goal_x = {
+        'left': -90.0,
+        'right': 90.0
+    }
     
-    return game_events[['distance_goal', 'angle_shot', 'empty_net']]
+    if side not in goal_x:
+        return None
+    
+    return round(((x - goal_x[side]) ** 2 + y ** 2) ** 0.5,2)

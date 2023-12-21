@@ -260,7 +260,7 @@ class DataCleaner:
                 # Ignore events that do not have team side information (bad data) (it also coincidentally avoids overtime periods that don't end when going to shootouts)
                 opposite_team_side = self._find_opposite_team_side(event, home_team_id)
                 if opposite_team_side is None: # It's always the whole game that is missing this information
-                    # print(f"Failed to extract event data for game {game_id} due to missing rink side information")
+                    print(f"Failed to extract event data for game {game_id} due to missing rink side information")
                     return None
                 
                 # Extract empty net information
@@ -289,6 +289,7 @@ class DataCleaner:
                         event_data.update(previous_event_data)
                     
                 events.append(event_data)
+                print(f"Event : {event_data}")
             
             # update previous event
             if 'coordinates' in event:
