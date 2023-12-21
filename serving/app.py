@@ -15,7 +15,7 @@ import pandas as pd
 import json
 
 
-from ift6758.client.comet_client import CometMLClient
+from package.ift6758.client.comet_client import CometMLClient
 
 
 LOG_FILE = os.environ.get("FLASK_LOG", "flask.log")

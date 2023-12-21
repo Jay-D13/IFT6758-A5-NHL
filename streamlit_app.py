@@ -4,8 +4,8 @@ import numpy as np
 import requests
 import json
 import pandas as pd
-from ift6758.client.live_game_client import LiveGameClient
-from ift6758.client.serving_client import ServingClient
+from package.ift6758.client.live_game_client import LiveGameClient
+from package.ift6758.client.serving_client import ServingClient
 
 st.title("Hockey Game Goal Prediction App")
 

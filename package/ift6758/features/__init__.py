@@ -1,1 +1,1 @@
-from ift6758.features.ingenierie import FeatureEng
+from package.ift6758.features.ingenierie import FeatureEng

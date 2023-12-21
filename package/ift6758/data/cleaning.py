@@ -1,8 +1,8 @@
 import pandas as pd
 import os
 from datetime import datetime
-from ift6758.data import WANTED_EVENTS
-from ift6758.data.acquisition import NHLGameData
+from package.ift6758.data import WANTED_EVENTS
+from package.ift6758.data.acquisition import NHLGameData
 
 class DataCleaner:
     def __init__(self, data_raw: NHLGameData, data_path_clean):

@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import logging
 import os
+import json
 
 
 logger = logging.getLogger(__name__)
@@ -28,7 +29,7 @@ class ServingClient:
             X (Dataframe): Input dataframe to submit to the prediction service.
         """
         url = f"{self.base_url}/predict"
-        donnees = {"data": X.to_dict(orient = 'records')} 
+        donnees = json.loads({"data": X.to_dict(orient = 'records')})
         rappelle = requests.post(url, json = donnees)
         if rappelle.status_code == 200:
             df = pd.DataFrame(rappelle.json())
