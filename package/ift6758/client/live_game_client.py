@@ -36,11 +36,9 @@ class LiveGameClient:
                 continue
             self.game_plays_cache[game_id]['play_nums'].append(most_recent_play_num + i + 1)
         
-        print("Empty plays" if not game_data['plays'] else f"New plays: {len(game_data['plays'])}", flush=True)
         cleaned_new_plays = self.cleaner.extract_events(game_data, game_id, includeShootouts=False, keepPreviousEventInfo=False, includePowerPlay=False)
-        print(f"New plays: {cleaned_new_plays}", flush=True)
         
-        self.game_plays_cache[game_id]['cleaned_plays'].append(cleaned_new_plays)
+        self.game_plays_cache[game_id]['cleaned_plays'].extend(cleaned_new_plays)
         
         return most_recent_play_num
 
@@ -71,6 +69,7 @@ class LiveGameClient:
                 
         newest_play_num = self.update_new_game_plays(game_id)
         game_plays = pd.DataFrame(self.game_plays_cache[game_id]['cleaned_plays'][newest_play_num:])
+        game_plays = self.cleaner.remove_bad_data(game_plays)
         
         new_plays_features = features_live_game(game_plays)
         self.game_plays_cache[game_id]['features'] = pd.concat([self.game_plays_cache[game_id]['features'], new_plays_features])

@@ -257,11 +257,13 @@ class DataCleaner:
             # Ignore events that are not shots or goals
             if event['typeDescKey'] in WANTED_EVENTS:
                      
-                # Ignore events that do not have team side information (bad data) (it also coincidentally avoids overtime periods that don't end when going to shootouts)
                 opposite_team_side = self._find_opposite_team_side(event, home_team_id)
-                if opposite_team_side is None: # It's always the whole game that is missing this information
-                    print(f"Failed to extract event data for game {game_id} due to missing rink side information")
-                    return None
+                
+                # DOES NOT APPLY WITH NEW API ANYMORE
+                # Ignore events that do not have team side information (bad data) (it also coincidentally avoids overtime periods that don't end when going to shootouts)
+                # if opposite_team_side is None: # It's always the whole game that is missing this information
+                #     print(f"Failed to extract event data for game {game_id} due to missing rink side information")
+                #     return None
                 
                 # Extract empty net information
                 empty_net = self._get_is_emptyNet(event, home_team_id)
@@ -289,13 +291,12 @@ class DataCleaner:
                         event_data.update(previous_event_data)
                     
                 events.append(event_data)
-                print(f"Event : {event_data}")
             
             # update previous event
             if 'coordinates' in event:
                 if len(event['coordinates']) == 2:
                     previous_event = event
-        
+                    
         return events
     
     def clean_season(self, season :int, includeShootouts :bool = True, keepPreviousEventInfo :bool = False, includePowerPlay : bool = False):
@@ -368,6 +369,9 @@ class DataCleaner:
         # There's one previous event that's missing data
         if keepPreviousEvents:
             df = df[df['prev_type'].notna()]
+            
+        # remove missing rink side information
+        df = df[df['opposite_team_side'].notna()]
         
         return df
         
