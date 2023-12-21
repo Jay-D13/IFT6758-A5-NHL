@@ -24,13 +24,14 @@ services:
       context: ./
       dockerfile: ./Dockerfile.streamlit
       args:
-        STREAMLIT_PORT: 5001
+        STREAMLIT_PORT: 8501
         STREAMLIT_IP: 0.0.0.0
     image: ift6758/streamlit:latest
     ports:
-      - "5001:5001"
+      - "8501:8501"
     environment:
       - STREAMLIT_IP=0.0.0.0
-      - STREAMLIT_PORT=5001
+      - STREAMLIT_PORT=8501
       - PYTHONUNBUFFERED=1
       - SERVING_PORT=5002
+      - SERVING_IP=0.0.0.0

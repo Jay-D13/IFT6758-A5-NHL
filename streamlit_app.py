@@ -1,16 +1,17 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import requests
-import json
 import pandas as pd
 from package.ift6758.client.live_game_client import LiveGameClient
 from package.ift6758.client.serving_client import ServingClient
 
 st.title("Hockey Game Goal Prediction App")
 
-serving_client = ServingClient()
-live_game_client = LiveGameClient()
+if 'serving_client' not in st.session_state:
+    st.session_state.serving_client = ServingClient()
+
+if 'live_game_client' not in st.session_state:
+    st.session_state.live_game_client = LiveGameClient()
 
 def get_predictions(model_version, game_info):
     
@@ -24,7 +25,7 @@ def get_predictions(model_version, game_info):
     X = game_info['features'][model_features[model_version]]
     
     # get predictions
-    y = serving_client.predict(X)
+    y = st.session_state.serving_client.predict(X)
     
     # concat predictions to features
     df = pd.concat([X, y], axis=1)
@@ -51,7 +52,7 @@ with st.sidebar:
     version = st.selectbox('Version', version_options)
 
     if st.button('Download Model'):
-        model = serving_client.download_registry_model(workspace, model_name, version)
+        model = st.session_state.serving_client.download_registry_model(workspace, model_name, version)
         st.write('Model downloaded successfully!')
 
 infos, stats = None, None
@@ -71,16 +72,16 @@ with st.container():
             if not game_id:
                 st.warning('Please enter a valid game ID.')
             else: 
-                infos = live_game_client.ping_game(game_id)
+                infos = st.session_state.live_game_client.ping_game(game_id)
                 x_y = get_predictions(version, infos)
-                stats = live_game_client.get_game_stats(game_id, x_y)
+                stats = st.session_state.live_game_client.get_game_stats(game_id, x_y)
     
     with col2:
         if game_id:
             if st.button('Refresh'):
-                infos, stats = live_game_client.ping_game(game_id)
+                infos, stats = st.session_state.live_game_client.ping_game(game_id)
                 x_y = get_predictions(version, infos)
-                stats = live_game_client.get_game_stats(game_id, x_y)
+                stats = st.session_state.live_game_client.get_game_stats(game_id, x_y)
 
 
 if stats and x_y is not None:
