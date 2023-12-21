@@ -29,15 +29,14 @@ class ServingClient:
             X (Dataframe): Input dataframe to submit to the prediction service.
         """
         url = f"{self.base_url}/predict"
-        donnees = json.loads({"data": X.to_dict(orient = 'records')})
-        rappelle = requests.post(url, json = donnees)
-        if rappelle.status_code == 200:
-            df = pd.DataFrame(rappelle.json())
+        res = requests.post(url, json = X.to_json())
+        if res.status_code == 200:
+            df = pd.DataFrame(res.json())
             return df
             
         else:
-            logger.error(f"Prediction request failed with status code {rappelle.status_code}")
-            rappelle.raise_for_status()
+            logger.error(f"Prediction request failed with status code {res.status_code}")
+            res.raise_for_status()
             
     def logs(self) -> dict:
         """Get server logs"""
