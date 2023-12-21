@@ -18,7 +18,7 @@ model = None
 workspace='ift6758-a5-nhl'
 model_list = None
 data_dir = './download'
-default_model = 'logisticregression_distance'
+default_model = 'logisticregression_angle'
 comet_api = None
 
 # Setup basic logging configuration
@@ -52,7 +52,7 @@ def logs():
     return jsonify(response)  # response must be json serializable!
 
 
-@app.route("/download_registry_model", methods=["GET", "POST"])
+@app.route("/download_registry_model", methods=["POST"])
 def download_registry_model():
     """
     Handles POST requests made to http://IP_ADDRESS:PORT/download_registry_model
@@ -93,8 +93,7 @@ def download_registry_model():
     app.logger.info(response)
     return Response(json.dumps(response), status_code, mimetype='application/json') # response must be json serializable!
 
-
-@app.route("/predict", methods=["GET","POST"])
+@app.route("/predict", methods=["POST"])
 def predict():
     """
     Handles POST requests made to http://IP_ADDRESS:PORT/predict
@@ -108,10 +107,7 @@ def predict():
     app.logger.info(json_data)
 
     # Load JSON data into a DataFrame
-    if isinstance(json_data[list(json_data.keys())[0]], float):
-        df = pd.DataFrame(json_data, index=[0])
-    else:
-        df = pd.DataFrame(json_data)
+    df = pd.read_json(json_data, orient='split')
 
     # Perform predictions using the loaded model
     predictions = model.predict_proba(df)
@@ -121,4 +117,4 @@ def predict():
     }
 
     app.logger.info(response)
-    return jsonify(response)  # response must be json serializable!
+    return jsonify(response)

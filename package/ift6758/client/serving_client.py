@@ -29,11 +29,11 @@ class ServingClient:
             X (Dataframe): Input dataframe to submit to the prediction service.
         """
         url = f"{self.base_url}/predict"
-        res = requests.post(url, json = X.to_json())
+        res = requests.post(url, json=X.to_json(orient='split'))
         if res.status_code == 200:
-            df = pd.DataFrame(res.json())
-            return df
-            
+            response_data = res.json()
+            predictions = pd.DataFrame(response_data['predictions'])
+            return predictions
         else:
             logger.error(f"Prediction request failed with status code {res.status_code}")
             res.raise_for_status()
@@ -65,8 +65,8 @@ class ServingClient:
             version (str): The model version to download
         """
         url = f"{self.base_url}/download_registry_model"
-        params = {"workspace": workspace, "model": model, "version": version}
-        rappelle = requests.get(url, params=params)
+        data = {"workspace": workspace, "model": model, "version": version}
+        rappelle = requests.post(url, json=data)
         if rappelle.status_code ==200:
             modele_donnees = rappelle.json()
             return modele_donnees

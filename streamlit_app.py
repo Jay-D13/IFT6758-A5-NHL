@@ -56,7 +56,6 @@ with st.sidebar:
         st.write('Model downloaded successfully!')
 
 infos, stats = None, None
-
 with st.container():
     game_id = st.text_input('Game ID', help="Enter the ID of the game you want to analyze.")
     
