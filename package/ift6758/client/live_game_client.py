@@ -6,7 +6,6 @@ import logging
 from ift6758.features.ingenierie import features_live_game
 from ift6758.data.cleaning import DataCleaner
 
-logger = logging.getLogger(__name__)
 
 class LiveGameClient:
     def __init__(self):
@@ -37,9 +36,9 @@ class LiveGameClient:
                 continue
             self.game_plays_cache[game_id]['play_nums'].append(most_recent_play_num + i + 1)
         
-        logger.info("Empty plays" if not game_data['plays'] else f"New plays: {len(game_data['plays'])}")
+        print("Empty plays" if not game_data['plays'] else f"New plays: {len(game_data['plays'])}", flush=True)
         cleaned_new_plays = self.cleaner.extract_events(game_data, game_id, includeShootouts=False, keepPreviousEventInfo=False, includePowerPlay=False)
-        logger.info(f"New plays: {cleaned_new_plays}")
+        print(f"New plays: {cleaned_new_plays}", flush=True)
         
         self.game_plays_cache[game_id]['cleaned_plays'].append(cleaned_new_plays)
         
