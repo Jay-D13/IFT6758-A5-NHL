@@ -212,13 +212,13 @@ class FeatureEng:
 def features_live_game(game_events : pd.DataFrame): # new api (annoying) so we limit ourselves to the features we need for simple models   
      
     df = game_events.copy()
-    df['distance_goal'] = df.apply(lambda row: get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
-    df['angle_shot'] = np.where(df['distance_goal'] == 0, 0, round(np.degrees(np.arcsin(df['y'] / df['distance_goal'])),2))
+    df['distance'] = df.apply(lambda row: get_dist_goal(row['opposite_team_side'], row['x'], row['y']), axis=1)
+    df['angle'] = np.where(df['distance'] == 0, 0, round(np.degrees(np.arcsin(df['y'] / df['distance'])),2))
     
     df['empty_net'] = df['empty_net'].fillna(0)
     df['empty_net'] = df['empty_net'].astype(int)
     
-    return df[['distance_goal', 'angle_shot', 'empty_net']]
+    return df[['distance', 'angle', 'empty_net']]
 
 def get_dist_goal(side, x, y) -> float:
     goal_x = {

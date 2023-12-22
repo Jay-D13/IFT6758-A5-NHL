@@ -16,9 +16,9 @@ if 'live_game_client' not in st.session_state:
 def get_predictions(model_version, game_info):
     
     model_features = {
-        'logisticregression_angle': ['angle_shot'],
-        'logisticregression_distance': ['distance_goal'],
-        'logisticregression_distance-angle': ['distance_goal', 'angle_shot'],
+        'logisticregression_angle': ['angle'],
+        'logisticregression_distance': ['distance'],
+        'logisticregression_distance-angle': ['distance', 'angle'],
     }
     
     # filter features to match model
@@ -26,7 +26,6 @@ def get_predictions(model_version, game_info):
     
     X.index = ['Event '+ str(idx) for idx in X.index]
 
-    
     # get predictions
     preds = st.session_state.serving_client.predict(X)
     y = preds['goal'].rename('predictions')
@@ -41,14 +40,11 @@ with st.sidebar:
     st.subheader("Model Configuration")
 
     workspace_options = ['ft6758-a5-nhl/milestone2']
-    model_name_options = ['Regression']#, 'XGBoost', 'RandomForest']
+    model_name_options = ['Regression']
 
     model_versions = {
         'Regression': ['logisticregression_angle', 'logisticregression_distance', 'logisticregression_distance-angle'],
-        # 'XGBoost': ['v1.5'],
-        # 'RandomForest': ['v3.0']
     }
-
 
     workspace = st.selectbox('Workspace', workspace_options)
     model_name = st.selectbox('Model', model_name_options)
@@ -109,7 +105,7 @@ if stats and x_y is not None:
     st.write(f"Period {stats['current_period']} - {stats['time_remaining']} left")
 
     with st.container():
-        col1, spacer1, col2, col3, spacer2, col4 = st.columns([2, 1, 3, 3, 1, 2])
+        col1, col2, spacer1, col3, col4 = st.columns([2, 1, 5, 1, 2])
         
         with col1:
             home_logo_response = requests.get(home_logo)

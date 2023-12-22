@@ -30,7 +30,6 @@ class ServingClient:
         """
         url = f"{self.base_url}/predict"
         X = X.to_json(orient='split', index=False)
-        # print(f"X in JSON: {X}")
         res = requests.post(url, json=X)
         if res.status_code == 200:
             response_data = res.json()
