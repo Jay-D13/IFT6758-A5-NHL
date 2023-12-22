@@ -34,4 +34,4 @@ services:
       - STREAMLIT_PORT=8501
       - PYTHONUNBUFFERED=1
       - SERVING_PORT=5002
-      - SERVING_IP=0.0.0.0
+      - SERVING_IP=serving
