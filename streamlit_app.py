@@ -23,13 +23,19 @@ def get_predictions(model_version, game_info):
     
     # filter features to match model
     X = game_info['features'][model_features[model_version]]
-    print(f"X: {X}")
+    
+    X.index = ['Event '+ str(idx) for idx in X.index]
+
+    
     # get predictions
     preds = st.session_state.serving_client.predict(X)
-    
     y = preds['goal'].rename('predictions')
+    y.index = X.index
     
-    return y
+    # concat with features
+    x_y = pd.concat([X, y], axis=1)
+    
+    return X, y, x_y
 
 with st.sidebar:
     st.subheader("Model Configuration")
@@ -52,6 +58,9 @@ with st.sidebar:
 
     if st.button('Download Model'):
         model = st.session_state.serving_client.download_registry_model(workspace, model_name, version)
+        # reinitialize client
+        st.session_state.serving_client = ServingClient()
+        st.session_state.live_game_client = LiveGameClient()
         st.write('Model downloaded successfully!')
 
 infos, stats = None, None
@@ -71,16 +80,14 @@ with st.container():
                 st.warning('Please enter a valid game ID.')
             else: 
                 infos = st.session_state.live_game_client.ping_game(game_id)
-                y = get_predictions(version, infos)
-                x_y = pd.concat([infos['features'], y], axis=1)
+                X, y, x_y = get_predictions(version, infos)
                 stats = st.session_state.live_game_client.get_game_stats(game_id, y)
     
     with col2:
         if game_id:
             if st.button('Refresh'):
                 infos, stats = st.session_state.live_game_client.ping_game(game_id)
-                y = get_predictions(version, infos)
-                x_y = pd.concat([infos['features'], y], axis=1)
+                X, y, x_y = get_predictions(version, infos)
                 stats = st.session_state.live_game_client.get_game_stats(game_id, y)
 
 
@@ -95,13 +102,14 @@ if stats and x_y is not None:
     home_logo = stats['team_logos'][0]
     away_logo = stats['team_logos'][1]
     
-    diff_home = home_score - xg_home
-    diff_away = away_score - xg_away
+    diff_home = round(home_score - xg_home,1)
+    diff_away = round(away_score - xg_away,1)
     
     st.subheader(f"Game {game_id}: {home} vs {away}")
     st.write(f"Period {stats['current_period']} - {stats['time_remaining']} left")
+
     with st.container():
-        col1, col2, col3, col4 = st.columns([1, 2, 2, 1])
+        col1, spacer1, col2, col3, spacer2, col4 = st.columns([2, 1, 3, 3, 1, 2])
         
         with col1:
             home_logo_response = requests.get(home_logo)
@@ -109,15 +117,14 @@ if stats and x_y is not None:
         
         with col2:
             st.metric(label=f"{home} xG (actual)", value=f"{xg_home} ({home_score})", delta=diff_home)
-            
+        
         with col3:
             st.metric(label=f"{away} xG (actual)", value=f"{xg_away} ({away_score})", delta=diff_away)
-            
+        
         with col4:
             away_logo_response = requests.get(away_logo)
             st.image(away_logo_response.text, width=100, output_format='SVG')
 
     with st.container():
         st.subheader("Data used for predictions (and predictions):")
-        print(x_y)
-        st.dataframe(x_y)
+        st.dataframe(x_y, height=600, width=800)

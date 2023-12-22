@@ -64,7 +64,7 @@ class LiveGameClient:
         new_plays_features = features_live_game(cleaned_new_plays)
         self.game_plays_cache[game_id]['features'] = pd.concat([self.game_plays_cache[game_id]['features'], new_plays_features])
         
-        return self.game_plays_cache[game_id]
+        return self.game_plays_cache[game_id].copy()
 
 
     def get_game_stats(self, game_id, predictions):
