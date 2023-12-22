@@ -82,7 +82,7 @@ with st.container():
     with col2:
         if game_id:
             if st.button('Refresh'):
-                infos, stats = st.session_state.live_game_client.ping_game(game_id)
+                infos = st.session_state.live_game_client.ping_game(game_id)
                 X, y, x_y = get_predictions(version, infos)
                 stats = st.session_state.live_game_client.get_game_stats(game_id, y)
 
@@ -105,7 +105,7 @@ if stats and x_y is not None:
     st.write(f"Period {stats['current_period']} - {stats['time_remaining']} left")
 
     with st.container():
-        col1, col2, spacer1, col3, col4 = st.columns([2, 1, 5, 1, 2])
+        col1, col2, spacer1, col3, col4 = st.columns([2, 1, 3, 1, 2])
         
         with col1:
             home_logo_response = requests.get(home_logo)
