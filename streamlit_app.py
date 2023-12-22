@@ -119,5 +119,5 @@ if stats and x_y is not None:
 
     with st.container():
         st.subheader("Data used for predictions (and predictions):")
-        df = pd.concat([infos['features'], pd.DataFrame(infos['predictions'])], axis=1)
-        st.dataframe(df)
+        print(x_y)
+        st.dataframe(x_y)

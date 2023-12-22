@@ -1,6 +1,4 @@
 import requests
-import os
-import json
 import pandas as pd
 from ift6758.features.ingenierie import features_live_game
 from ift6758.data.cleaning import DataCleaner
@@ -79,7 +77,7 @@ class LiveGameClient:
         
         xg_home = []
         xg_away = []
-        print(f"predictions: {predictions}")
+        
         for i, play in enumerate(self.game_plays_cache[game_id]['cleaned_plays']):
             team = play.get('team')
             if team:
@@ -88,8 +86,8 @@ class LiveGameClient:
                 else:
                     xg_away.append(predictions.iloc[i])
                     
-        xg_home_total = round(sum(xg_home),2)
-        xg_away_total = round(sum(xg_away),2)
+        xg_home_total = round(sum(xg_home), 1)
+        xg_away_total = round(sum(xg_away), 1)
         
         return {
             "team_names": team_names,
