@@ -49,17 +49,25 @@ class LiveGameClient:
                     "cleaned_plays": [], 
                     "features": pd.DataFrame(),
                     "play_nums": [],
-                    # "predictions": []
-                    }
-                
-        newest_play_num = self.update_new_game_plays(game_id)
-        game_plays = pd.DataFrame(self.game_plays_cache[game_id]['cleaned_plays'][newest_play_num:])
-        game_plays = self.cleaner.remove_bad_data(game_plays)
+                }
         
-        new_plays_features = features_live_game(game_plays)
+        newest_play_num = self.update_new_game_plays(game_id)
+        
+        # fetch new plays and convert to DataFrame
+        new_plays = pd.DataFrame(self.game_plays_cache[game_id]['cleaned_plays'][newest_play_num:])
+        
+        # clean new plays from bad data
+        cleaned_new_plays = self.cleaner.remove_bad_data(new_plays)
+        
+        # update cache cleaned plays
+        self.game_plays_cache[game_id]['cleaned_plays'][newest_play_num:] = cleaned_new_plays.to_dict('records')
+        
+        # generate features for the new plays
+        new_plays_features = features_live_game(cleaned_new_plays)
         self.game_plays_cache[game_id]['features'] = pd.concat([self.game_plays_cache[game_id]['features'], new_plays_features])
         
         return self.game_plays_cache[game_id]
+
 
     def get_game_stats(self, game_id, predictions):
         
@@ -71,15 +79,17 @@ class LiveGameClient:
         
         xg_home = []
         xg_away = []
-        
+        print(f"predictions: {predictions}")
         for i, play in enumerate(self.game_plays_cache[game_id]['cleaned_plays']):
-            if play['team'] == team_names[0]:
-                xg_home.append(predictions[i])
-            else:
-                xg_away.append(predictions[i])
-                
-        xg_home = sum(xg_home)
-        xg_away = sum(xg_away)
+            team = play.get('team')
+            if team:
+                if team == team_names[0]:
+                    xg_home.append(predictions.iloc[i])
+                else:
+                    xg_away.append(predictions.iloc[i])
+                    
+        xg_home_total = round(sum(xg_home),2)
+        xg_away_total = round(sum(xg_away),2)
         
         return {
             "team_names": team_names,
@@ -87,5 +97,5 @@ class LiveGameClient:
             "current_period": current_period,
             "time_remaining": time_remaining,
             "score": score,
-            "xG": [xg_home, xg_away]
+            "xG": [xg_home_total, xg_away_total]
         }

@@ -29,10 +29,15 @@ class ServingClient:
             X (Dataframe): Input dataframe to submit to the prediction service.
         """
         url = f"{self.base_url}/predict"
-        res = requests.post(url, json=X.to_json(orient='split'))
+        X = X.to_json(orient='split', index=False)
+        # print(f"X in JSON: {X}")
+        res = requests.post(url, json=X)
         if res.status_code == 200:
             response_data = res.json()
             predictions = pd.DataFrame(response_data['predictions'])
+
+            predictions.columns = ['not_goal', 'goal']
+
             return predictions
         else:
             logger.error(f"Prediction request failed with status code {res.status_code}")

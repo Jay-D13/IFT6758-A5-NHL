@@ -23,14 +23,13 @@ def get_predictions(model_version, game_info):
     
     # filter features to match model
     X = game_info['features'][model_features[model_version]]
-    
+    print(f"X: {X}")
     # get predictions
-    y = st.session_state.serving_client.predict(X)
+    preds = st.session_state.serving_client.predict(X)
     
-    # concat predictions to features
-    df = pd.concat([X, y], axis=1)
+    y = preds['goal'].rename('predictions')
     
-    return df
+    return y
 
 with st.sidebar:
     st.subheader("Model Configuration")
@@ -72,15 +71,17 @@ with st.container():
                 st.warning('Please enter a valid game ID.')
             else: 
                 infos = st.session_state.live_game_client.ping_game(game_id)
-                x_y = get_predictions(version, infos)
-                stats = st.session_state.live_game_client.get_game_stats(game_id, x_y)
+                y = get_predictions(version, infos)
+                x_y = pd.concat([infos['features'], y], axis=1)
+                stats = st.session_state.live_game_client.get_game_stats(game_id, y)
     
     with col2:
         if game_id:
             if st.button('Refresh'):
                 infos, stats = st.session_state.live_game_client.ping_game(game_id)
-                x_y = get_predictions(version, infos)
-                stats = st.session_state.live_game_client.get_game_stats(game_id, x_y)
+                y = get_predictions(version, infos)
+                x_y = pd.concat([infos['features'], y], axis=1)
+                stats = st.session_state.live_game_client.get_game_stats(game_id, y)
 
 
 if stats and x_y is not None:
@@ -107,10 +108,10 @@ if stats and x_y is not None:
             st.image(home_logo_response.text, width=100, output_format='SVG')
         
         with col2:
-            st.metric(label="Canucks xG (actual)", value=f"{xg_home} ({home_score})", delta=diff_home)
+            st.metric(label=f"{home} xG (actual)", value=f"{xg_home} ({home_score})", delta=diff_home)
             
         with col3:
-            st.metric(label="Avalanche xG (actual)", value=f"{xg_away} ({away_score})", delta=diff_away)
+            st.metric(label=f"{away} xG (actual)", value=f"{xg_away} ({away_score})", delta=diff_away)
             
         with col4:
             away_logo_response = requests.get(away_logo)
